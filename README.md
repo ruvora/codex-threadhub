@@ -9,6 +9,14 @@
 
 Long-running Codex use creates more threads while decisions and constraints become scattered across conversations and projects. RUVORA is not a tool for creating even more threads. It is a central control layer that records **which context was selected and why, then coordinates work under validated execution contracts**.
 
+## Why ThreadHub exists
+
+A useful decision should survive the conversation that produced it, and a complex goal should remain understandable as it crosses threads and repositories. ThreadHub connects those two needs: it selects context with provenance, fixes the basis of a plan, and keeps execution and its result in durable local state. The user follows one goal and its evidence while the system manages the work beneath it.
+
+Three principles shape the implementation. **Context must be explainable:** a claim carries its source and applicability, and conflicting claims remain visible. **Coordination must preserve local authority:** a global goal connects project runs without bypassing their execution contracts. **Completion must be demonstrable:** command results, artifacts, validation and integration determine success; a worker's final sentence alone cannot establish it.
+
+These principles make thread reuse, bounded creation and recovery part of the product experience. Progress should survive a closed conversation or interrupted process, and the next task should be able to understand why the previous one reached its result. The [product direction](./docs/PRODUCT_DIRECTION.md) explains the original problem and enduring design principles; current implementation and dated verification are described below.
+
 ## At a glance
 
 | Problem | RUVORA's approach |
@@ -114,6 +122,12 @@ Work threads show the assigned request, real execution history and a readable fi
 | **Data Plane** | Execute one Task in an assigned Codex thread and produce evidence | Does not mutate sibling Tasks or the overall Run |
 
 The MCP process is a thin host-facing transport proxy. One daemon owns the Registry, scheduler, and App Server writer so multiple Codex conversations can safely share durable state.
+
+### Why the architecture is durable
+
+The SQLite Registry holds structured context, execution ownership and result evidence across process restarts. Immutable Context Snapshots keep a plan tied to the knowledge it actually used. Claims and leases coordinate concurrent workers; fencing rejects late results from a worker that no longer owns a task. Managed worktrees and a serialized integration journal preserve the relationship between an accepted result and the changes that reached the target workspace.
+
+Keeping one daemon in charge of these transitions gives multiple conversations a common source of execution state. MCP and the dashboard expose that state without becoming alternative schedulers. See the [architecture](./docs/ARCHITECTURE.md) and [failure recovery contracts](./docs/operations/FAILURE_RECOVERY.md) for the mechanisms and their limits.
 
 ## Request lifecycle
 
@@ -269,6 +283,12 @@ scripts/  runtime parity, deployment, and reinstall preflight
 | How are deployment and daemon handover managed? | [Runtime Lifecycle](./docs/operations/RUNTIME_LIFECYCLE.md) |
 | What is planned next? | [Roadmap](./ROADMAP.md) |
 | How is a release verified and published? | [Release Process](./RELEASING.md) |
+
+## Direction
+
+The product direction is to make context selection, thread reuse and multi-project handoffs easier to understand and verify. Further work should strengthen the link from a user's objective to selected knowledge, executed changes and a recoverable result. The [roadmap](./ROADMAP.md) tracks the work; its milestones are separate from the dated acceptance evidence in the implementation status and linked reports.
+
+Within RUVORA, [ThreadGraph](https://github.com/ruvora/codex-threadgraph) explains existing context, [ThreadFold](https://github.com/ruvora/codex-threadfold) develops evidence-preserving consolidation, [ThreadPort](https://github.com/ruvora/codex-threadport) develops bounded history portability, and [Workspace](https://github.com/ruvora/ruvora-workspace) connects the project experience. Their recommendations, plans and previews do not replace Hub's execution and completion contracts. Fold, Port and Workspace still have native integration gates; membership in this family does not imply an operational end-to-end integration.
 
 ## Product boundaries
 
