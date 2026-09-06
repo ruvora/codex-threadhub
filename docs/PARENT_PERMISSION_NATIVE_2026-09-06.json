@@ -1,0 +1,35 @@
+{
+  "runId": "run_16788c24-d216-4632-bd3f-3cc7387d0592",
+  "taskId": "task_2e17578c-8819-475d-a622-207cef49cf1f",
+  "status": "completed",
+  "parent": {
+    "sandbox": "danger-full-access",
+    "approvalPolicy": "never",
+    "networkAccess": true,
+    "threadId": "01a075fb-af85-7032-b8f6-61aea787ea6f",
+    "turnId": "01a076c7-d615-7f60-aa03-bcd3361a83f7",
+    "source": "native_turn_context"
+  },
+  "native": [
+    {
+      "role": "worker",
+      "sandbox": "danger-full-access",
+      "approvalPolicy": "never",
+      "networkAccess": true,
+      "threadId": "01a076d0-caa4-7650-80b1-9d8e871e3b48",
+      "turnId": "01a076d0-ccfc-77c2-b073-d84d3393dd6d",
+      "source": "native_turn_context"
+    },
+    {
+      "role": "validator",
+      "sandbox": "danger-full-access",
+      "approvalPolicy": "never",
+      "networkAccess": true,
+      "threadId": "01a076d0-eced-7f43-9a6c-cfba754f7766",
+      "turnId": "01a076d0-ef32-7321-9b9a-bf8e1d337703",
+      "source": "native_turn_context"
+    }
+  ],
+  "validationDecision": "accept",
+  "output": "facts.txt의 alpha는 17, beta는 25이며, 합계는 42입니다."
+}

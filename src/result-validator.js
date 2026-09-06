@@ -1,3 +1,4 @@
+import { permissionRunOptions } from "./parent-permissions.js";
 import { createHash } from "node:crypto";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -168,7 +169,7 @@ export class ResultValidator {
       parentTaskId: options.taskId, parentRunId: task?.runId ?? task?.metadata?.runId ?? null,
       prompt, timeoutMs: options.timeoutMs ?? 900_000, control,
       acquireThread: async (threadId) => {
-        agent = (await this.#ensureAgent(options.cwd, threadId, control)).agent;
+        agent = (await this.#ensureAgent(options.cwd, threadId, control, task?.metadata?.parentPermissions)).agent;
         return agent;
       },
       onThread: ({ agent: boundAgent, dispatch }) => this.registry.updateTask(options.taskId, {
@@ -179,6 +180,7 @@ export class ResultValidator {
         model: options.model,
         effort: options.effort ?? "high",
         approvalPolicy: "never",
+        ...permissionRunOptions(task?.metadata?.parentPermissions, options.cwd),
         outputSchema: VALIDATION_SCHEMA,
         timeoutMs: options.timeoutMs ?? 900_000,
         onStarted: ({ turnId }) => this.registry.updateTask(options.taskId, { metadata: { validationInProgress: { agentId: agent.id, dispatchId: this.registry.listTurnDispatches({ subjectId: options.taskId, purpose: "validation", limit: 1 })[0]?.id, turnId } } }),
@@ -193,14 +195,14 @@ export class ResultValidator {
     return { ...validation, validatorAgentId: agent.id, turnId: result.turnId };
   }
 
-  async #ensureAgent(cwd, preferredId = null, suppliedControl = null) {
+  async #ensureAgent(cwd, preferredId = null, suppliedControl = null, permissions = null) {
     const control = suppliedControl ?? await this.getControl();
     const key = `validator_agent:${createHash("sha256").update(cwd ?? "workspace").digest("hex").slice(0, 16)}`;
     const storedId = preferredId ?? this.registry.getSetting(key);
     let agent;
     if (storedId) {
       try {
-        agent = await control.resumeAgent(storedId, { cwd, sandbox: "read-only", approvalPolicy: "never" });
+        agent = await control.resumeAgent(storedId, { cwd, sandbox: permissions?.sandbox ?? "read-only", approvalPolicy: permissions?.approvalPolicy ?? "never" });
       } catch {
         agent = null;
       }
@@ -209,8 +211,8 @@ export class ResultValidator {
       const template = this.roleTemplates.resolve("qa");
       agent = await control.spawnAgent({
         cwd,
-        sandbox: "read-only",
-        approvalPolicy: "never",
+        sandbox: permissions?.sandbox ?? "read-only",
+        approvalPolicy: permissions?.approvalPolicy ?? "never",
         model: template.model,
         developerInstructions: "You are a read-only acceptance validator. The parent Control Plane request already authorizes the Run, so validate immediately without requesting another Start. Verify evidence against every criterion. Never implement fixes or approve unsupported claims.",
       });

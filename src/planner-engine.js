@@ -1,3 +1,4 @@
+import { inheritPermissions, permissionRunOptions } from "./parent-permissions.js";
 import { randomUUID } from "node:crypto";
 import { agentDisplayName } from "./agent-names.js";
 import { ContextResolver } from "./context-resolver.js";
@@ -101,10 +102,10 @@ function assertSingleRunStart(plan) {
   throw error;
 }
 
-function assertPlanExecutionContracts(plan, roleTemplates) {
+function assertPlanExecutionContracts(plan, roleTemplates, permissions) {
   for (const task of plan?.tasks ?? []) {
     const roleTemplate = roleTemplates.resolve(task.role);
-    try { compileAndValidateExecutionContract(task, {}, roleTemplate); }
+    try { compileAndValidateExecutionContract(inheritPermissions(task, permissions), {}, roleTemplate); }
     catch (error) {
       error.message = `Task ${task.key}: ${error.message} (workspaceMode=${task.workspaceMode}, integrationStrategy=${task.integrationStrategy}, tools=${JSON.stringify(task.tools)})`;
       throw error;
@@ -129,7 +130,7 @@ export class PlannerEngine {
     const existing = options.requestKey ? this.registry.listPlans({ limit: 200 }).find((plan) => plan.requestKey === options.requestKey) : null;
     if (existing?.status === "planned" && existing.plan?.tasks?.length) return existing;
     const targetId = existing?.id ?? id;
-    if (!existing) this.registry.createPlan({ id: targetId, requestKey: options.requestKey, objective: options.objective, cwd: options.cwd, metadata: { constraints: options.constraints ?? [], requestedThreadIds: options.requestedThreadIds ?? [], requiredContextSubjects: options.requiredContextSubjects ?? [] } });
+    if (!existing) this.registry.createPlan({ id: targetId, requestKey: options.requestKey, objective: options.objective, cwd: options.cwd, metadata: { parentPermissions: options.parentPermissions ?? null, constraints: options.constraints ?? [], requestedThreadIds: options.requestedThreadIds ?? [], requiredContextSubjects: options.requiredContextSubjects ?? [] } });
     else this.registry.updatePlan(targetId, { status: "planning", metadata: { resumedAt: new Date().toISOString() } });
     try {
       const snapshot = options.contextSnapshot
@@ -189,8 +190,8 @@ export class PlannerEngine {
     const result = await this.turnDispatcher.execute({
       subjectType: "plan", subjectId: planId, purpose: "synthesis", planId,
       parentRunId: plan.metadata?.runId ?? null, prompt, control, allowTerminalParent: true,
-      acquireThread: async (threadId) => (await this.#ensureAgent(plan.cwd, "synthesizer", threadId, control)).agent,
-      runOptions: { cwd: plan.cwd, outputSchema: SYNTHESIS_SCHEMA, approvalPolicy: "never" },
+      acquireThread: async (threadId) => (await this.#ensureAgent(plan.cwd, "synthesizer", threadId, control, plan.metadata?.parentPermissions)).agent,
+      runOptions: { cwd: plan.cwd, outputSchema: SYNTHESIS_SCHEMA, approvalPolicy: "never", ...permissionRunOptions(plan.metadata?.parentPermissions, plan.cwd) },
     });
     const reported = parseJsonOutput(result.output);
     const synthesis = expectedStatus && reported.status !== expectedStatus
@@ -240,7 +241,7 @@ export class PlannerEngine {
         subjectType: "plan", subjectId: planId, purpose: "planning", planId, parentRunId: runId,
         prompt, contextSnapshotId: validatedSnapshot.id, control,
         acquireThread: async (threadId) => {
-          activeAgent = (await this.#ensureAgent(plan.cwd, "planner", threadId ?? plan.plannerAgentId, control)).agent;
+          activeAgent = (await this.#ensureAgent(plan.cwd, "planner", threadId ?? plan.plannerAgentId, control, plan.metadata?.parentPermissions)).agent;
           return activeAgent;
         },
         onThread: ({ agent: boundAgent, dispatch }) => {
@@ -250,7 +251,7 @@ export class PlannerEngine {
             metadata: { activeTurnDispatchId: dispatch.id, runId: runId ?? plan.metadata?.runId ?? null },
           });
         },
-        runOptions: { cwd: plan.cwd, outputSchema: PLAN_SCHEMA, approvalPolicy: "never" },
+        runOptions: { cwd: plan.cwd, outputSchema: PLAN_SCHEMA, approvalPolicy: "never", ...permissionRunOptions(plan.metadata?.parentPermissions, plan.cwd) },
       });
       materialized = parseJsonOutput(result.output);
       if (!materialized || !Array.isArray(materialized.tasks) || materialized.tasks.length === 0) {
@@ -258,7 +259,7 @@ export class PlannerEngine {
       }
       try {
         assertSingleRunStart(materialized);
-        assertPlanExecutionContracts(materialized, this.roleTemplates);
+        assertPlanExecutionContracts(materialized, this.roleTemplates, plan.metadata?.parentPermissions);
         contractError = null;
         break;
       } catch (error) {
@@ -282,19 +283,19 @@ export class PlannerEngine {
     });
   }
 
-  async #ensureAgent(cwd, role, preferredId = null, suppliedControl = null) {
+  async #ensureAgent(cwd, role, preferredId = null, suppliedControl = null, permissions = null) {
     const control = suppliedControl ?? await this.getControl();
     const template = this.roleTemplates.resolve(role);
     let agent;
     if (preferredId) {
       try {
-        agent = await control.resumeAgent(preferredId, { cwd, sandbox: template.sandbox, approvalPolicy: template.approvalPolicy, model: template.model });
+        agent = await control.resumeAgent(preferredId, { cwd, sandbox: permissions?.sandbox ?? template.sandbox, approvalPolicy: permissions?.approvalPolicy ?? template.approvalPolicy, model: template.model });
       } catch {
         agent = null;
       }
     }
     if (!agent) {
-      agent = await control.spawnAgent({ cwd, sandbox: template.sandbox, approvalPolicy: template.approvalPolicy, model: template.model, developerInstructions: template.developerInstructions });
+      agent = await control.spawnAgent({ cwd, sandbox: permissions?.sandbox ?? template.sandbox, approvalPolicy: permissions?.approvalPolicy ?? template.approvalPolicy, model: template.model, developerInstructions: template.developerInstructions });
       await this.decorateAgent(control, agent, agentDisplayName(role, String(cwd ?? "workspace").split("/").pop()), false);
     }
     this.registry.upsertAgent({ ...agent, status: "idle" }, { role, capabilities: template.capabilities, metadata: { tools: template.tools, controlPlane: true } });

@@ -1,0 +1,507 @@
+✔ writer handoff waits for actual process exit (3.119042ms)
+✔ connect performs handshake and listAgents maps threads (1.55275ms)
+✔ connect falls back to the stable API when an older App Server rejects experimental capabilities (0.548875ms)
+✔ agent archive and unarchive use distinct App Server lifecycle methods (1.418916ms)
+✔ runTask collects streamed output until the matching turn completes (7.450791ms)
+✔ runTask hydrates the terminal Turn so a missed failed command cannot become success (1.637917ms)
+✔ concurrent turns on one thread collect only their turn-scoped deltas (7.755167ms)
+✔ runTask forwards an explicit workspace-write network policy (7.956875ms)
+✔ approval requests are declined by default (2.681291ms)
+✔ app-server error notifications do not crash the daemon EventEmitter (1.1035ms)
+✔ approval handler can pause and accept an app-server request (2.898708ms)
+✔ runTask returns promptly when a turn is interrupted (7.893375ms)
+✔ runTask derives terminal status from the App Server notification method (7.455833ms)
+✔ runTask recovers a missed terminal notification with thread/read (8.061209ms)
+✔ runTask probes thread/read before the full turn timeout expires (8.800291ms)
+✔ runTask converts an app-server error notification into a scoped turn failure (1.625292ms)
+✔ resumeAgent coalesces ownership-safe retries for a Desktop-owned idle thread (2.0045ms)
+✔ resumeAgent surfaces an active-writer ownership error without stealing or forking (1.144375ms)
+✔ resumeAgent omits experimental fields after stable initialize fallback (0.262666ms)
+✔ managed Data Plane threads disable the Control Plane plugin on start, resume, and fork (0.521375ms)
+✔ incident receipt preserves unavailable output separately from no-match semantics (2.536916ms)
+✔ revision handoff carries derived observations without rewriting native receipts (0.734125ms)
+✔ worker and validator share the same observation policy (0.800125ms)
+✔ missing hydrated output does not erase live output or hide a later failure (0.553125ms)
+✔ native empty receipt reaches normal persisted completion (9.362791ms)
+✔ native empty receipt reaches recovered persisted completion (3.552ms)
+✔ output survives normal hydration (1.714125ms)
+✔ output survives missed terminal recovery (0.209166ms)
+✔ completion rejects a failed command even when Agent prose claims success (4.048125ms)
+✔ completion never assumes success when terminal Turn evidence is incomplete (0.643834ms)
+✔ incomplete evidence for a mutating Task is never replayed automatically (0.274ms)
+✔ mutating completion rejects an empty worktree artifact (2.280625ms)
+✔ completion requires validation when acceptance criteria exist (0.149834ms)
+✔ structured test intent requires an actual test command, not an arbitrary command (0.279417ms)
+✔ destination postcondition failure overrides validation and integration success (0.10725ms)
+✔ a complete non-mutating report produces a fingerprinted accept verdict (0.143083ms)
+✔ Master synthesis cannot describe a failed Run as an overall success (0.167875ms)
+✔ nonzero diagnostics require exact independent review and retain warnings (1.739667ms)
+✔ context claims cannot activate without provenance (9.34125ms)
+✔ lower authority cannot supersede an explicit user decision (12.132958ms)
+✔ thread knowledge snapshots deduplicate source digests and supersede the previous current snapshot (9.038791ms)
+✔ thread lineage and routing decisions preserve inheritance, evidence, and rejection reasons (5.209917ms)
+✔ router explains provenance-backed thread knowledge in candidate selection (1.435875ms)
+✔ context manager ranks trusted project decisions and labels agent output as reference (11.107125ms)
+✔ completed task output flows back to project and agent context (17.761792ms)
+✔ memory freshness prefers authoritative current semantic versions and explicit supersedes (6.401208ms)
+✔ context resolution is idempotent and freezes selected provenance (18.794542ms)
+✔ equal-authority contract conflict creates an invalid terminal snapshot (6.236666ms)
+✔ a lower-authority repository contract cannot execute against an explicit user decision (38.91ms)
+✔ new active claims invalidate the context resolution cache (5.666417ms)
+✔ an explicit user resolution supersedes conflicting history before a new snapshot can execute (9.088125ms)
+✔ missing required context is invalid and a persisted fingerprint cannot be forged (6.448917ms)
+✔ a requested thread without a current knowledge digest cannot produce a validated snapshot (4.811166ms)
+✔ claim refuses a task whose context snapshot marker was tampered (5.486458ms)
+✔ a building snapshot resumes deterministically after registry reopen without a task attempt (12.648ms)
+✔ daemon serves multiple MCP clients through one durable owner (25.020625ms)
+✔ daemon drains control tasks before waiting for active HTTP connections to close (0.390791ms)
+✔ build handover rejects new work, drains active tasks, and releases the socket for the next daemon (116.339958ms)
+✔ daemon client reports upgrade_pending instead of reusing a mismatched active build (217.640916ms)
+✔ ordinary stale clients cannot stop or replace a different active build (8.215792ms)
+✔ 10 runs by 5 tasks stay inside dashboard payload and latency budgets (88.785833ms)
+✔ repeated dashboard reads do not retain unbounded heap (253.245167ms)
+✔ dashboard keeps Context Snapshot summaries lightweight and loads provenance on demand (37.404292ms)
+✔ dashboard exposes Global Run projection separately from Project Runs (5.534917ms)
+✔ dashboard DTO exposes failure, routing provenance, identities, and safe archive scopes without starting work (8.909208ms)
+✔ dashboard exposes a graphless dispatch failure before worker creation (7.199125ms)
+✔ dashboard diagnostics expose durable TurnDispatch state without embedding output (6.572417ms)
+✔ dashboard reconciles a stale terminal Run consistently across card, list, and graph (7.182542ms)
+✔ task-only deltas update graph, selected Run, and Run cards together (7.021625ms)
+✔ task DTO exposes dependencies, runnable state, and current work (9.969541ms)
+✔ work navigator DTO names Orchestrator and Data Plane threads (14.726542ms)
+✔ work navigator resolves a worktree agent outside the project cwd scope (8.797042ms)
+✔ dashboard requires its token and exposes no manual Start endpoint (75.3065ms)
+✔ only one live dashboard server owns the durable dashboard lease (11.126125ms)
+✔ local dashboard registers an existing session as an agent (13.693625ms)
+✔ local dashboard forwards an explicit task contract repair (8.496875ms)
+✔ 360px through 1200px widths use staged responsive layouts (7.735666ms)
+✔ run cards select details directly and obsolete management controls are absent (2.986542ms)
+✔ work navigator keeps the run list and selected run structure visible by default (0.829959ms)
+✔ dashboard copy omits redundant helper text (2.545084ms)
+✔ dashboard defaults to orchestration structure and separates work, threads, and results (1.861791ms)
+✔ task flow keeps dependency stages visible without an overflowing canvas (1.030709ms)
+✔ dashboard renders backend failure, routing, identity, and archive contracts (1.372ms)
+✔ embedded dashboard script remains syntactically valid (2.8805ms)
+✔ embedded dashboard polling is single-flight, adaptive, and visibility-aware (1.830666ms)
+✔ dashboard navigation links target actual work without message or clipboard fallbacks (2.060167ms)
+✔ agent titles include one role icon inside brackets (1.079542ms)
+✔ dispatch policy sends one independent task directly (0.4315ms)
+✔ dispatch policy routes a dependency graph through an orchestrator (0.399958ms)
+✔ Codex App Server thread states normalize at the domain boundary (0.496584ms)
+✔ domain state transitions reject illegal rewinds and allow explicit repair (0.446875ms)
+✔ Global Run transitions and required/optional aggregation are centralized (0.161333ms)
+✔ recovery attention is terminal and mixed cancellation never reports success (0.094208ms)
+✔ every centralized state declares terminal, retry, recovery, and attention semantics (0.164958ms)
+✔ actual serialized AGENTS search does not reject passing tests (3.673542ms)
+✔ only a literal diagnostic-free file enumeration can be no-match (1.613125ms)
+✔ native rg no-match and actual errors stay distinct (18.613375ms)
+✔ a later failed test is never hidden by a benign search (2.296ms)
+✔ ThreadFold multi-root literal search is no-match but path errors remain failures (0.532916ms)
+✔ unknown test exit requires evidence inspection, not success or automatic rework (3.841083ms)
+✔ test executable paths and runtime flags are recognized without trusting echoed commands (3.366292ms)
+✔ only a later successful same test in the same workspace supersedes failure (3.274083ms)
+✔ explicit commentary is never a final answer but unphased legacy messages remain supported (0.321292ms)
+✔ wrapper prose is insufficient but a separately observed child test receipt works (0.557ms)
+✔ a historical failure mentioned in prose does not overturn verified same-target recovery (0.231959ms)
+✔ Workspace static checks and explicitly excluded host checks do not request runtime authority (11.614667ms)
+✔ test execution defaults to a report and does not require a project change (2.732167ms)
+✔ execution authority follows explicit task intent rather than role names (0.433167ms)
+✔ preflight rejects contradictory and external automatic contracts (0.177167ms)
+✔ local runtime lifecycle is distinct from external system mutation (0.416666ms)
+✔ runtime capabilities are independent from project mutation and drive sandbox preflight (0.206833ms)
+✔ browser acceptance requires an explicit browser-capable tool (0.319625ms)
+✔ task execution contracts only inherit the parent Run authorization (0.854375ms)
+✔ execution contracts reject unsupported enum values and malformed collections (1.396917ms)
+✔ execution contracts reject contradictory authority and workspace intent (1.084791ms)
+✔ persisted execution contracts verify version and fingerprint integrity (1.382958ms)
+✔ search terms and filenames are not authority or runtime failure diagnostics (4.086583ms)
+✔ redirected tests remain blocking and only the same later test invocation supersedes them (0.28725ms)
+✔ failure classification separates infrastructure, coordination, validation, and worker errors (0.245917ms)
+✔ product context reference failures are canonical non-retryable configuration failures (0.075208ms)
+✔ Codex response 404 and exhausted reconnects are stable retryable environment failures (0.077875ms)
+✔ result assessment rejects completed turns with real command or test failures (0.116667ms)
+✔ sandbox EPERM in test output is classified as environment instead of product (0.079666ms)
+✔ successful test execution is not overturned by identifiers in narrative output (0.072ms)
+✔ standalone machine-shaped failed test summaries remain failures (0.139375ms)
+✔ cyclic cross-project graph is rejected atomically before child Runs or Tasks exist (13.792083ms)
+✔ Global Run public API defaults to v1 and rejects unsupported versions before persistence (65.122375ms)
+✔ a storage failure in a later Project Run rolls back the entire Global revision (44.865291ms)
+✔ validated Global graph releases roots then consumers only after producer success (60.522ms)
+✔ required failure fails Global Run while optional failure is preserved as a completion warning (115.178ms)
+✔ global cancellation and revision tampering fence claims without consuming attempts (112.882375ms)
+✔ unsafe child recovery attention terminalizes the Global Run as attention_required (35.978375ms)
+✔ restart recovery releases a committed graph and fails an interrupted pre-graph preparation (95.212ms)
+✔ project authorization manifests reject child escalation and cross-project root inheritance before persistence (97.719666ms)
+✔ authorization expansion requires an explicit new revision payload before graph persistence (40.483542ms)
+✔ a recorded producer artifact crosses the project boundary only through a validated handoff (54.501792ms)
+✔ global cancellation preserves already completed integration evidence (61.893417ms)
+✔ dependency contract tampering and missing receipts block consumers before attempt (59.51ms)
+✔ persisted handoff tampering fences the consumer and receipt recovery is idempotent across reopen (140.508958ms)
+✔ schema v5 reopens transactionally with authorization and handoff storage (18.944667ms)
+✔ pin handoff exposes only a valid requested thread and never confirms host state (1.222291ms)
+✔ status waits for the representative identity without invoking the execution plane (213.297125ms)
+✔ MCP proxy attaches the native requester thread to dashboard opens (6.533625ms)
+✔ MCP proxy keeps caller identity input separate from authoritative host origin (0.815208ms)
+✔ MCP proxy attaches Control Plane origin identity to dispatch and work navigation reads (1.036042ms)
+✔ proxy overwrites caller-supplied permission origin with native identity (1.074667ms)
+✔ MCP initialize advertises tools and safety instructions (13.06575ms)
+✔ thread budget tools expose immutable revisions and lifecycle counters (39.504792ms)
+✔ automatic routing archives an ephemeral one-off worker after its terminal task (101.222834ms)
+✔ prepare_global_run atomically exposes root and dependent Project Runs through MCP (68.842167ms)
+✔ Global Run consumers receive only validated durable cross-project handoff evidence (170.958ms)
+✔ repair_task_contract preserves failure history and requeues with a new explicit contract (7.831333ms)
+✔ invalid persisted contracts fail before claim without consuming an attempt (12.62225ms)
+✔ persisted unsupported loopback contract is blocked before attempt or connection (15.723875ms)
+✔ external persisted contracts are blocked as non-repairable policy before claim (14.508708ms)
+✔ post-claim contract validation failure safely terminalizes the claim (13.135917ms)
+✔ agent profiles persist and influence automatic routing (9.624291ms)
+✔ listing agents is registry-only and never wakes App Server (7.944084ms)
+✔ archive tools filter terminal runs and idle agents without touching active identities (9.933833ms)
+✔ task routing provenance and capability/tool matrix persist with scheduler identity (33.370417ms)
+✔ plugin initialization performs no App Server synchronization (4.653625ms)
+✔ a standalone MCP server refuses to become a second Codex thread writer (4.923333ms)
+✔ project memory tools build an auditable context pack (6.275833ms)
+✔ ThreadGraph MCP import creates only a project-scoped candidate with provenance (31.168625ms)
+✔ run_agent_task forks an existing agent by default (16.577917ms)
+✔ run_agent_task injects project context and records its result (31.76325ms)
+✔ explicit test execution contracts receive workspace-write with requested network access (26.808167ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ an arbitrary unregistered implementation role executes with the explicit write contract (31.330792ms)
+✔ a real mutating Task cannot complete when Agent prose reports success but no workspace change exists (210.833666ms)
+✔ acceptance criteria keep a task validating until the validator accepts (36.194917ms)
+✔ a completed turn with a non-zero real test command is persisted as failed (25.361875ms)
+✔ missing test exit is persisted as attention with no retry and a released claim (23.406042ms)
+✔ read-only tools are marked read-only (4.769583ms)
+✔ dashboard resource uses the MCP Apps MIME type (5.584084ms)
+✔ authorized dashboards can open an existing Codex Desktop task without sending a prompt (9.592084ms)
+✔ show_agent_dashboard returns agents and task state (8.186708ms)
+✔ only show_agent_dashboard advertises or returns the output template (21.325833ms)
+✔ dashboard snapshots are lightweight and details load on demand behind a view lease (9.241042ms)
+✔ Data Plane and Orchestrator threads cannot open the dashboard (5.342125ms)
+✔ dashboard falls back to the registered Control Plane owner when the host omits requester identity (9.984084ms)
+✔ an authenticated host thread replaces a stale dashboard fallback owner (6.852042ms)
+✔ legacy caller identity cannot replace an existing dashboard fallback owner (4.679625ms)
+✔ project reconciliation is five-minute TTL single-flight (9.565916ms)
+✔ prepare_agent_run atomically starts and binds a leased session per task (31.097041ms)
+✔ complex runs automatically provision an Orchestrator before workers (10.82125ms)
+✔ daemon never probes unsupported App Server sidebar pin metadata (14.560792ms)
+✔ orchestrator kickoff failure terminalizes the prepared graph without consuming task attempts (10.374958ms)
+Control request run_10274a83-ccc0-41cf-bfdb-d0467e09612c failed during background dispatch: Superseded context claim was not found
+✔ daemon recovery terminalizes a legacy preparing Run whose kickoff dispatch already failed (12.816959ms)
+✔ prepared run records an actual Orchestrator thread separately from the Daemon Scheduler (7.861ms)
+✔ control dispatch persists one canonical product-contract failure before creating work (14.437833ms)
+✔ direct analysis request crosses planning and executes exactly once without requiring edits (30.211084ms)
+✔ direct test request crosses planning and executes exactly once without requiring edits (29.005958ms)
+✔ dispatch_control_request returns before planning and automatically starts after atomic preparation (18.173792ms)
+✔ dispatch_control_request has no advanced manual mode and starts automatically (8.121541ms)
+✔ host origin supplies native permissions while results stay in the work navigator (9.570916ms)
+✔ terminal Control Plane runs finalize for dashboard navigation without appending to the origin thread (10.587792ms)
+✔ attention notifications remain visible in the dashboard without writing to the origin thread (26.480959ms)
+✔ daemon observes an uncertain terminal receipt without replaying or reopening its failed task (15.9735ms)
+✔ daemon restart finalizes an integration_pending task from a recorded journal (16.429625ms)
+✔ revising a plan never rewrites an already running Run (8.230083ms)
+✔ registry task preserves failed and interrupted App Server turn status (42.477666ms)
+✔ dependent data-plane tasks receive upstream results as A2A handoff (53.80375ms)
+✔ validator feedback drives bounded rework after automatic Start (55.398667ms)
+✔ periodic reconciliation completes a stale task from thread/read (7.613208ms)
+✔ restart reconciliation continues a completed worker into validation (7.631459ms)
+✔ restart reconciliation never completes accepted validation before worktree integration (7.576042ms)
+✔ restart reconciliation consumes validator feedback once without duplicate rework (6.841292ms)
+✔ close drains then interrupts an active Data Plane turn (32.210375ms)
+✔ explicit worker reuse or fork cannot bypass persistent control-role boundary (12.702084ms)
+✔ diagnostic review completes with durable warnings instead of replaying worker (22.254084ms)
+✔ incident multi-action displays decode entire argv and preserve identity (4.760459ms)
+✔ shell display escaping is not a conflict when structured identity matches (0.607167ms)
+✔ classified search/read/list actions retain exact command identity despite display quoting (0.571541ms)
+✔ incident: native empty output survives projection; chunk ID is a different namespace (0.172833ms)
+✔ different sessions and turns cannot supply evidence (0.104583ms)
+✔ exit or explicit output conflicts remain conflicts rather than successful corrections (0.107417ms)
+✔ default navigation returns host handoff, never a URL or false opened receipt (12.817625ms)
+✔ dashboard renders safe direct task links without message or clipboard side effects (0.711542ms)
+✔ notification policy exposes exactly four canonical user-facing kinds (0.945458ms)
+✔ terminal runs classify failures separately from policy stops (0.121292ms)
+✔ all product output schemas satisfy the transport profile (0.733917ms)
+✔ unsupported nested keyword fails before registry, lease, or thread acquisition (0.866083ms)
+✔ schema property names are not confused with schema keywords (0.168709ms)
+✔ local and upstream invalid schema failures require repair, never retry (1.856958ms)
+✔ removing transport uniqueness does not weaken domain validation (0.799209ms)
+✔ shutdown drains pending spawn before closing and rejects new acquisition (4.118416ms)
+✔ concurrent terminal cleanup waits on one process exit (0.303541ms)
+✔ terminal task releases only its own writer before returning (0.216417ms)
+✔ uncertain execution retains writer for observation and interrupt (0.152209ms)
+✔ acquisition failure closes isolated process and concurrent resume is deduplicated (0.236958ms)
+✔ failed and interrupted terminal turns release ownership without replay (0.17325ms)
+✔ fresh thread naming stays on its owner before a rollout exists (0.381375ms)
+✔ terminal reconciliation releases an uncertain owner but active observation does not (0.284625ms)
+✔ native request turn selects current permissions and rejects mismatched identities (0.810333ms)
+✔ parent runtime authority applies to reviews and writes without changing task side effects (10.805208ms)
+✔ native permission lookup is observation-only and rejects a wrong host path identity (7.551916ms)
+✔ prepared graph inherits parent authority durably and sends full access at worker execution (117.487875ms)
+✔ planner, validator and synthesizer inherit full access while keeping their role instructions (26.149542ms)
+✔ known parent lookup failure blocks dispatch before creating any work (6.705167ms)
+✔ planner blocks conflicting context before creating or resuming an Agent (29.176709ms)
+✔ planner indexes explicitly requested thread history before spawning its Agent (21.044334ms)
+✔ an unreadable requested thread fails planning before Agent creation (9.465834ms)
+✔ planner owns a persistent plan and revision loop (19.06575ms)
+✔ planner resumes an interrupted planning record instead of returning a null graph (9.124042ms)
+✔ planner rejects a schema-shaped null graph before dispatch reads tasks (11.296041ms)
+✔ planner output schema marks every declared property as required (0.155875ms)
+✔ synthesizer prose cannot replace the durable failed Run verdict (10.413625ms)
+✔ planner retries invalid structured authorization regardless of prose (17.733583ms)
+✔ single-Run Start lint accepts explicit Korean prohibitions from planner tasks (0.210083ms)
+✔ single-Run Start prose is advisory and cannot override structured authority (0.715708ms)
+✔ live E2E negations do not become additional Start requests (0.155833ms)
+✔ prose warnings persist without consuming a planner rework (21.080625ms)
+✔ Fold planning receives constraints and preserves task-specific rejected drafts (18.771ms)
+✔ planner compiles execution contracts before persisting the graph and retries invalid policy (15.7195ms)
+✔ the repository product contract is self-consistent on a fresh registry (33.2625ms)
+✔ known historical product claims are superseded when present (25.678417ms)
+✔ undeclared supersede targets are rejected before registry mutation (1.021834ms)
+✔ canonical project identity converges for a git root, nested cwd, symlink, and worktree (158.405375ms)
+✔ non-git directories remain separate canonical projects (21.0495ms)
+✔ unresolvable project paths fail instead of inventing an identity (0.851125ms)
+✔ registry persists only the four canonical notification kinds (24.428ms)
+✔ terminal Run state always owns the projected dispatch phase (5.384333ms)
+✔ legacy Control Plane delivery rows remain durable for migration compatibility (5.150959ms)
+✔ registry persists agent profiles and task state across reopen (15.537917ms)
+✔ legacy database upgrades transactionally with backup, run foreign key, and status constraint (20.042042ms)
+✔ schema v1 expands canonical projects and backfills legacy memories as unverified candidate claims (34.691958ms)
+✔ new project-scoped entities persist the same canonical project id (43.857416ms)
+✔ explicit user decision memories become active provenance-backed context claims (12.910833ms)
+✔ router selects a matching available agent and spawns when score is too low (2.300416ms)
+✔ router rolls a heavily reused session into a fresh fork (0.207625ms)
+✔ router rejects a reusable session below the required permission ceiling (0.141625ms)
+✔ router forks instead of reusing a session with an active writer or locked approval policy (0.17975ms)
+✔ dependency policies support always-run and failure-only tasks (10.138875ms)
+✔ router never selects an agent missing a required capability or tool (0.223292ms)
+✔ terminal runs and idle agents support durable archive scopes while active or leased targets are rejected (9.217291ms)
+✔ routing provenance, archive state, and memory freshness metadata survive registry reopen (18.849625ms)
+✔ project memories persist with project-tree scope (6.528708ms)
+✔ dependency tasks unblock only after every parent completes (7.255959ms)
+✔ claim is atomic and retry uses bounded exponential backoff (7.469625ms)
+✔ claim requires a matching validated contract marker (7.960083ms)
+✔ two registry connections cannot claim once and stale completion is fenced (14.099875ms)
+✔ restart recovery automatically requeues only side-effect-free execution contracts (5.112791ms)
+✔ restart recovery terminalizes uncertain integration and clears claim ownership (7.011208ms)
+✔ cancellation clears task ownership and releases active leases (7.416459ms)
+✔ worktree lease has one active owner and can be released (5.043708ms)
+✔ agent lease enforces one task owner and recovers an expired lifecycle (5.971583ms)
+✔ dashboard lease fences competing daemon owners (4.13575ms)
+✔ dashboard gate keeps a run staged and releases roots before dependencies (5.715875ms)
+✔ cwd scope includes parent and child working directories (4.735ms)
+✔ task graph creation is atomic and idempotent (10.590875ms)
+✔ every terminal dependency failure cascades through multiple blocked levels in one refresh (36.5695ms)
+✔ plans approvals worktrees and role templates persist (8.638084ms)
+✔ validation rejection is terminal and blocks dependent work (8.347709ms)
+✔ completed_with_warnings is terminal, unblocks dependencies, and completes its run (6.862ms)
+✔ every direct terminal claim outcome releases ownership (8.136583ms)
+✔ validation infrastructure errors are never completed and persist exhausted failure details (7.03ms)
+✔ validator rejection schedules bounded rework and repeated feedback is deduplicated across reopen (15.815833ms)
+✔ infrastructure failures use bounded retry rather than validator rework (8.48175ms)
+✔ configuration failures never repeat under the same execution contract (5.180166ms)
+✔ reinstall preflight requires an exact safe plugin selector (0.865209ms)
+✔ reinstall is blocked by active work, draining state, or live versioned proxies (0.5355ms)
+✔ idle daemon with no cache-backed proxy is safe and preserves durable state (0.13ms)
+✔ proxy detection follows executable command and open files even when cwd is outside cache (0.290959ms)
+✔ runtime deployment verifies path, build, and protocol after deploy or rollback (0.179333ms)
+✔ oversized validation preserves all evidence in a private artifact and bounds transport (44.498791ms)
+✔ native evidence conflicts cannot be approved by a model (7.628333ms)
+✔ validator parser accepts fenced and explanatory structured output (0.267875ms)
+✔ validator parser selects the last schema-shaped object from concatenated JSON (0.156625ms)
+✔ validator parser rejects text without a schema-shaped object (0.230167ms)
+✔ validator receives the parent Run authorization and never asks for another Start (12.4855ms)
+✔ validator serializes concurrent validations that reuse one workspace agent (17.75875ms)
+✔ only transient failures may automatically retry the same contract (0.525084ms)
+✔ validator rework records a distinct feedback revision decision (1.279084ms)
+✔ contract repair cannot reuse the previous fingerprint (0.679667ms)
+✔ unregistered role names never grant write authority (1.622708ms)
+✔ run controller exposes agent-assigned dependency graph (26.936167ms)
+✔ run graph repairs a stale parent status after every task is terminal (13.04375ms)
+✔ run controller releases roots and keeps dependent nodes blocked (6.031833ms)
+✔ data-plane runtime prepends the daemon Node binary to App Server PATH (0.955916ms)
+✔ terminal worker histories release capacity without deleting threads; active and manual workers reserve slots (1187.188958ms)
+✔ default status is small, exposes only real masters and never includes diagnostic payloads (24.416208ms)
+✔ concurrent allocations cannot both spend the last worker slot (176.089583ms)
+✔ final output excludes progress commentary in hydrated and legacy turns (0.564917ms)
+✔ every terminal dependency can release and claim an all-terminal consumer (16.4325ms)
+✔ imported personal threads do not consume managed worker capacity (1020.258875ms)
+✔ impossible routing is blocked; busy routing honors queueWhenBusy (0.602708ms)
+✔ provider mismatch is never eligible, regardless of score (0.108708ms)
+✔ review of tests needs no execution and false artifact claims cannot succeed (0.480417ms)
+✔ unattributed shared workspace changes require inspection without automatic rework (0.134583ms)
+✔ transport schema validates types, references, and array bounds (0.415834ms)
+✔ lease waits expire durably and cannot retain a claim token (5.416083ms)
+✔ expired recovered dispatch is interrupted and parked for inspection (4.026042ms)
+✔ help, version and collection cannot satisfy a test execution gate (5.157708ms)
+✔ on-demand thread indexing stores only digest, topics, and source range (18.142125ms)
+✔ requested thread read failure is structured and never fabricates knowledge (7.14775ms)
+✔ busy threads queue instead of exceeding project, role, or lineage budgets (45.91175ms)
+✔ read-only one-off analysis may use an ephemeral worker when durable budget is full (0.151458ms)
+✔ superseded threads retain lineage evidence and are excluded from routing (25.26775ms)
+✔ archive and compaction are fenced while a thread owns unresolved work (10.653333ms)
+✔ thread budget revisions are immutable, scoped, and fingerprinted only from policy fields (37.695666ms)
+✔ schema v6 migrates thread lifecycle and budget tables with a backup and backfill (32.792542ms)
+✔ independent consumer validates the producer compatibility fixture (2.8375ms)
+✔ invalid packs are rejected before registry mutation (8.41225ms)
+✔ accepted import is idempotent provenance and never execution authority (10.465ms)
+✔ missing sources require explicit partial-import policy and still remain candidate (9.873125ms)
+✔ attention dispatch can record observed completion without replay or losing failure history (10.651083ms)
+✔ observing an existing active Turn preserves its dispatch and never resubmits (11.749541ms)
+✔ TurnDispatcher persists thread and Turn identity before terminal projection (9.468708ms)
+✔ cancellation generation fences a late thread acquisition before turn/start (8.589084ms)
+✔ restart reconciliation binds an already submitted Turn without resending the prompt (5.316417ms)
+✔ a completed submission is returned durably instead of being sent twice (6.546458ms)
+✔ public names and link labels hide hierarchy without renaming stored history (4.36675ms)
+✔ rendered work structure uses ordinary labels and keeps real navigation (1.874834ms)
+✔ handoffs retain full revision reports and command provenance after an addendum (1.298041ms)
+✔ ordinary work answers use prose without weakening named-output or execution evidence (3.388166ms)
+✔ execution context excludes historical reports but retains explicitly supplied dependencies (12.526334ms)
+✔ dispatch preserves private context and rejects changed context before execution (15.442458ms)
+✔ uncertain submission recovery never binds identical prose from another context (7.182083ms)
+✔ handoff exposes a server permission failure instead of claiming a panel opened (13.319792ms)
+✔ progress token is scoped to one run and cannot read details or mutate work (74.464666ms)
+✔ panel handoff targets the requesting conversation without invoking execution or claiming UI opened (15.56025ms)
+✔ preparation renders before a thread exists and the same view gains a real link (2.62725ms)
+✔ panel refresh preserves stale evidence, pauses hidden views, and prevents overlapping requests (23.223041ms)
+✔ single work offers its real link and compact panel handoff (2.15525ms)
+✔ orchestrated work offers a run-scoped compact panel handoff (1.572041ms)
+✔ preparation and missing or invalid representative never fabricate a link (0.556958ms)
+✔ compact text includes the actual link and does not call terminal count success (0.912417ms)
+✔ preparing work acknowledges missing link without claiming a created task (0.28025ms)
+✔ progress separates successful completion from rejected and running work (4.683708ms)
+✔ every task state belongs to one progress bucket, excluding the warning subset (0.201959ms)
+✔ approval waits and unknown states are visible rather than reported healthy (0.200042ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ managed worktree uses git add and retains dirty changes (8.004ms)
+✔ managed worktree reattaches its deterministic branch after cleanup (6.555833ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ dirty project state is snapshotted and worker artifacts integrate back (205.177167ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ parallel worktree artifacts serialize integration without losing either change (166.449792ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ integration conflict preserves the patch and leaves the worktree recoverable (156.151542ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ commit integration cherry-picks a clean artifact and records the strategy (154.230333ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ integration journal recovers a forced stop at applying without duplicate apply (151.896916ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ integration journal recovers a forced stop at applied without duplicate apply (146.898833ms)
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+✔ integration journal recovers a forced stop at recording without duplicate apply (146.280875ms)
+✔ an orphaned managed worktree is quarantined instead of deleted (101.189625ms)
+ℹ tests 381
+ℹ suites 0
+ℹ pass 381
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31487.170541

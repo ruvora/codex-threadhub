@@ -1433,10 +1433,16 @@ test("dispatch_control_request has no advanced manual mode and starts automatica
   await server.close();
 });
 
-test("host origin identity is provenance only and results stay in the work navigator", async () => {
+test("host origin supplies native permissions while results stay in the work navigator", async () => {
+  const nativeRoot = mkdtempSync(join(tmpdir(), "host-origin-"));
+  const nativePath = join(nativeRoot, "rollout.jsonl");
+  writeFileSync(nativePath, [
+    { type: "session_meta", payload: { id: "host_thread" } },
+    { type: "turn_context", payload: { turn_id: "host_turn", sandbox_policy: { type: "danger-full-access" }, approval_policy: "never" } },
+  ].map(JSON.stringify).join("\n"));
   const planner = { plan: async () => ({ id: "origin_plan", version: 1, plan: { summary: "origin", tasks: [{ key: "work", prompt: "work", role: "qa", dependsOn: [] }] } }) };
   const dashboardServer = { start: async () => {}, url: () => "http://dashboard", close: async () => {} };
-  const server = fakeServer({ connect: async () => {} }, { planner, dashboardServer, schedulerConcurrency: 0 });
+  const server = fakeServer({ connect: async () => {}, inspectAgent: async id => ({ thread: { id, path: nativePath } }) }, { planner, dashboardServer, schedulerConcurrency: 0 });
   const accepted = await server.handleRequest({
     method: "tools/call",
     params: {
@@ -1451,6 +1457,7 @@ test("host origin identity is provenance only and results stay in the work navig
   assert.equal(run.metadata.controlRequest.resultAccess, "master_thread_navigation");
   assert.deepEqual(accepted.structuredContent.resultAccess, { mode: "master_thread_navigation" });
   await server.close();
+  rmSync(nativeRoot, { recursive: true, force: true });
 });
 
 test("terminal Control Plane runs finalize for dashboard navigation without appending to the origin thread", async () => {

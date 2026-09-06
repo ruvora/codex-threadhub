@@ -267,3 +267,19 @@ scripts/  runtime parity, deployment, and reinstall preflight
 ## Author
 
 Created and maintained by [ShinYEB](https://github.com/ShinYEB).
+
+### Requesting thread permissions
+
+Hub reads the requesting thread's native turn context before accepting a new
+host-originated dispatch. Its sandbox mode, network access and approval policy
+are saved with the work and inherited by worker, planner, validator and
+orchestrator threads, including their subsequent Turns. Full Access therefore
+remains Full Access at execution time. Role instructions still define what each
+thread should do; runtime permissions do not turn a review into an edit request.
+
+A known parent whose native permissions cannot be read is rejected before child
+creation. Tool arguments and prompt text cannot supply a parent permission grant.
+Calls without a host origin (for example, standalone CLI clients) retain their
+explicit execution contracts. Existing work retains its recorded permissions;
+changing the parent's setting does not retroactively alter running work. Explicit
+multi-project authorization manifests remain additional limits.

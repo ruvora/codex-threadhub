@@ -124,3 +124,14 @@ receipts; do not interrupt, retry or claim healthy execution from either display
 alone. Report the discrepancy and known evidence. Nonzero diagnostic exits and
 optional unavailable checks need evidence-backed acceptance review; neither is
 a passed release gate.
+
+## Inherited request permissions
+
+The runtime reads the host-origin thread's native turn context and passes its
+sandbox, network and approval policy to all threads created for that request.
+Full Access requests remain Full Access through planning, execution, validation
+and synthesis. Do not infer permissions from prose, a supplied thread ID, or a
+role name; the native parent context is the source. Do not use narrower task
+sandbox defaults to replace inherited authority. Role-specific non-editing
+instructions and the user's task scope still apply. If the native parent context
+is unavailable, report the failure; do not retry without host origin to bypass it.
