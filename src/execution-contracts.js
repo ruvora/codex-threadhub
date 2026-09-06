@@ -115,6 +115,11 @@ function validateExecutionContract(contract, options = {}) {
   if (needsWritableRuntime && contract.sandbox === "read-only") {
     throw contractError("Temporary filesystem writes and localhost listeners require a writable runtime sandbox", "EXECUTION_CONTRACT_INSUFFICIENT_RUNTIME_SANDBOX");
   }
+  // A capability declaration does not grant sandbox permissions. This runtime
+  // cannot express loopback-only access; do not silently enable external access.
+  if (capabilitySet.has("localhost-listen") && contract.sandbox === "workspace-write" && !contract.networkAccess) {
+    throw contractError("This runtime cannot grant localhost-listen with networkAccess=false; run socket integration tests on an authorized host, or use socket-free tests. Network permissions will not be widened automatically.", "EXECUTION_CONTRACT_UNSUPPORTED_LOCALHOST_SANDBOX");
+  }
   if (capabilitySet.has("browser-inspection") && !contract.tools.some((tool) => ["browser", "computer-use", "chrome"].includes(tool))) {
     throw contractError("browser-inspection requires a browser-capable tool", "EXECUTION_CONTRACT_MISSING_TOOL");
   }

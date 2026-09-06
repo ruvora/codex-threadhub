@@ -31,23 +31,18 @@ test("local runtime lifecycle is distinct from external system mutation", () => 
 });
 
 test("runtime capabilities are independent from project mutation and drive sandbox preflight", () => {
-  const serverTest = compileExecutionContract({
+  assert.throws(() => compileExecutionContract({
     key: "server-test",
     taskKind: "test",
     mutatesWorkspace: false,
     executionCapabilities: ["process-execution", "temporary-filesystem-write", "localhost-listen"],
-  });
-  assert.equal(serverTest.sandbox, "workspace-write");
-  assert.equal(serverTest.mutatesWorkspace, false);
-  assert.equal(serverTest.workspaceMode, "shared");
-  const inferredServer = compileExecutionContract({
+  }), { code: 'EXECUTION_CONTRACT_UNSUPPORTED_LOCALHOST_SANDBOX' });
+  assert.throws(() => compileExecutionContract({
     key: "inferred-server",
     taskKind: "review",
     mutatesWorkspace: false,
     acceptanceCriteria: ["Start a local server and verify its 127.0.0.1 listener."],
-  });
-  assert.equal(inferredServer.sandbox, "workspace-write");
-  assert.ok(inferredServer.executionCapabilities.includes("localhost-listen"));
+  }), { code: 'EXECUTION_CONTRACT_UNSUPPORTED_LOCALHOST_SANDBOX' });
   assert.throws(() => compileExecutionContract({
     key: "blocked-server-test",
     taskKind: "test",

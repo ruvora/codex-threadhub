@@ -336,6 +336,29 @@ test("invalid persisted contracts fail before claim without consuming an attempt
   await server.close();
 });
 
+test("persisted unsupported loopback contract is blocked before attempt or connection", async () => {
+  let connections = 0;
+  const server = fakeServer({ connect: async () => { connections++; } }, { schedulerConcurrency: 1, schedulerIntervalMs: 5 });
+  const contract = compileExecutionContract({ key: 'loopback', taskKind: 'test', mutatesWorkspace: false });
+  contract.executionCapabilities.push('localhost-listen');
+  contract.fingerprint = contractFingerprint(contract);
+  try {
+    server.registry.createTask({ id: 'loopback', prompt: 'test', cwd: '/repo', metadata: { executionContract: contract, execution: { executionContract: contract } } });
+    server.startBackground();
+    const task = await waitUntil(() => {
+      const current = server.registry.getTask('loopback');
+      return current.status === 'failed' ? current : null;
+    });
+    assert.equal(task.attempt, 0);
+    assert.equal(task.claimToken, null);
+    assert.equal(task.agentId, null);
+    assert.equal(connections, 0);
+    assert.equal(task.metadata.failure.code, 'EXECUTION_CONTRACT_UNSUPPORTED_LOCALHOST_SANDBOX');
+    assert.equal(task.metadata.failure.retryable, false);
+    assert.equal(task.metadata.failure.nextAction, 'repair_contract');
+  } finally { await server.close(); }
+});
+
 test("external persisted contracts are blocked as non-repairable policy before claim", async () => {
   const server = fakeServer({ connect: async () => { throw new Error("control must not start"); } }, { schedulerConcurrency: 1, schedulerIntervalMs: 5 });
   const valid = compileExecutionContract({ key: "external_preclaim", taskKind: "analysis", mutatesWorkspace: false });

@@ -65,6 +65,8 @@
 
 `temporary-filesystem-write`와 `localhost-listen`은 writable runtime sandbox를 요구하지만 `workspace-write`를 의미하지 않는다. `browser-inspection`은 `browser`, `chrome`, `computer-use` 중 하나가 tools에 있어야 한다. `localhost-listen`은 `process-execution`을 함께 요구한다. `external-network`와 `networkAccess`, `workspace-write`와 `mutatesWorkspace`, `git-integration`과 `integrationStrategy`는 서로 일치해야 한다.
 
+현재 실행 어댑터는 loopback 전용 권한을 별도로 부여하지 못한다. 따라서 `localhost-listen` + `sandbox=workspace-write` + `networkAccess=false`는 지원 불가능한 계약으로 실행 전에 거부한다. 인터넷 권한이나 sandbox 권한을 자동 확대하지 않는다. 실제 서버 테스트는 허가된 호스트에서 별도로 수행한다. `test/work-panel.test.js`는 소켓 없는 화면 테스트이며, 실제 서버·토큰 통합 검증은 `test/work-panel-http.test.js`에 유지한다. 전체 `node --test`에는 둘 다 포함되며 통합 검증을 건너뛴 것을 성공으로 처리하지 않는다.
+
 Compiler는 구조화된 `acceptanceCriteria`에서 실제 브라우저·viewport·반응형 렌더링, localhost listener, 임시 파일 요구를 보수적으로 추출한다. 선언된 tool과 sandbox가 이 요구를 충족하지 못하면 graph persistence 전에 거부한다. 자연어 prompt는 권한을 추가하지 않는다.
 
 ## Preflight invariants
