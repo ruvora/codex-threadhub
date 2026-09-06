@@ -38,7 +38,7 @@ Ordinary reports are readable prose. Only explicitly named output interfaces req
 
 | Goal | Example | Internal execution |
 |---|---|---|
-| Read-only analysis | `Analyze this project's authentication flow and prioritize the risks.` | One Project Run with a `read-only` contract |
+| Read-only analysis | `Analyze this project's authentication flow and prioritize the risks.` | One Project Run with non-mutating task instructions and inherited parent permissions |
 | Code change | `Fix the failing tests and verify the fix with the full test suite.` | Write contract, Validator, and a managed worktree when needed |
 | Reuse context | `Use the API design review thread's decisions to produce an implementation plan.` | Requested-thread indexing and a frozen Context Snapshot |
 | Multi-project change | `Update the backend response contract and align the frontend types and UI.` | Global Run, project DAGs, and validated handoffs |
@@ -146,7 +146,7 @@ The MCP process is a thin host-facing transport proxy. One daemon owns the Regis
 
 - **Snapshot before planning:** complex goals freeze context first; planning cannot silently broaden scope or authority.
 - **Plan is not permission:** role names and Planner prose never grant filesystem, network, or side-effect authority.
-- **Graph before workers:** no Agent, Turn, worktree, or attempt exists before the graph and contracts are validated and persisted.
+- **Graph before workers:** no implementation worker, managed worktree, or task attempt starts before the graph and contracts are validated and persisted. Planning may precede graph creation.
 - **Fenced completion:** only the current matching `worker_id + claim_token` can complete a Task.
 - **No identical configuration retry:** a configuration failure cannot automatically retry with the same contract fingerprint.
 - **Artifact preservation:** unintegrated or conflicting worktrees and artifacts are retained or quarantined.
@@ -169,7 +169,7 @@ See [Architecture](./docs/ARCHITECTURE.md) and the [Execution Contract](./docs/c
 
 ## Run from source
 
-Requirements: Node.js 22 or later and an authenticated Codex CLI. There are no external npm runtime dependencies.
+Requirements: Node.js 22 or later and an authenticated Codex CLI. Development checks also require ripgrep (`rg`); the pnpm commands below use pnpm 10. There are no external npm runtime dependencies.
 
 ```bash
 git clone https://github.com/ruvora/codex-threadhub.git
@@ -202,6 +202,22 @@ The legacy commands `codex-control`, `codex-control-mcp`, and `codex-control-dae
 
 Plugin deployment must first check active work and runtime generation. Follow [Runtime Lifecycle](./docs/operations/RUNTIME_LIFECYCLE.md); after reinstalling, open a new conversation to load the new MCP generation.
 
+## Requesting thread permissions
+
+Hub reads the requesting thread's native turn context before accepting a new
+host-originated dispatch. Its sandbox mode, network access and approval policy
+are saved with the work and inherited by worker, planner, validator and
+orchestrator threads, including their subsequent Turns. Full Access therefore
+remains Full Access at execution time. Role instructions still define what each
+thread should do; runtime permissions do not turn a review into an edit request.
+
+A known parent whose native permissions cannot be read is rejected before child
+creation. Tool arguments and prompt text cannot supply a parent permission grant.
+Calls without a host origin (for example, standalone CLI clients) retain their
+explicit execution contracts. Existing work retains its recorded permissions;
+changing the parent's setting does not retroactively alter running work. Explicit
+multi-project authorization manifests remain additional limits.
+
 ## Implementation status
 
 | Area | Status |
@@ -211,8 +227,8 @@ Plugin deployment must first check active work and runtime generation. Follow [R
 | Global Run request API | v1 |
 | Cross-project handoff schema | v1 |
 | Implementation gates | G0–G7 complete |
-| Final E2E | 12 scenarios passing |
-| Full test suite | 262/262 passing |
+| v0.14.0 release E2E | 12 scenarios passing in the recorded release check |
+| Full test suite | 381/381 passing in the 2026-09-06 permission-inheritance check |
 | Runtime | Node.js ≥22, no external npm dependencies |
 
 ```bash
@@ -222,7 +238,9 @@ git diff --check
 ```
 
 See [G7 E2E Evidence](./docs/G7_E2E_EVIDENCE.md) for terminal-state and next-action evidence.
-The latest clean-clone release check is recorded in [Release Candidate E2E Evidence](./docs/RELEASE_E2E_EVIDENCE.md).
+The v0.14.0 clean-clone release check is recorded in [Release Candidate E2E Evidence](./docs/RELEASE_E2E_EVIDENCE.md).
+
+The [2026-09-06 parent-permission verification](./docs/PARENT_PERMISSIONS_2026-09-06.md) records the subsequent full-suite run and native worker/validator checks. These are dated results, not a claim that every future checkout or host has been verified.
 
 ## Repository layout
 
@@ -267,19 +285,3 @@ scripts/  runtime parity, deployment, and reinstall preflight
 ## Author
 
 Created and maintained by [ShinYEB](https://github.com/ShinYEB).
-
-### Requesting thread permissions
-
-Hub reads the requesting thread's native turn context before accepting a new
-host-originated dispatch. Its sandbox mode, network access and approval policy
-are saved with the work and inherited by worker, planner, validator and
-orchestrator threads, including their subsequent Turns. Full Access therefore
-remains Full Access at execution time. Role instructions still define what each
-thread should do; runtime permissions do not turn a review into an edit request.
-
-A known parent whose native permissions cannot be read is rejected before child
-creation. Tool arguments and prompt text cannot supply a parent permission grant.
-Calls without a host origin (for example, standalone CLI clients) retain their
-explicit execution contracts. Existing work retains its recorded permissions;
-changing the parent's setting does not retroactively alter running work. Explicit
-multi-project authorization manifests remain additional limits.
