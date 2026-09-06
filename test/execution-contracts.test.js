@@ -2,6 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assertExecutionContract, compileExecutionContract } from "../src/execution-contracts.js";
+import { evaluateTaskCompletion } from "../src/completion-evaluator.js";
+
+test('test execution defaults to a report and does not require a project change', () => {
+  const contract = compileExecutionContract({ key: 'work', taskKind: 'test', workspaceMode: 'shared' });
+  assert.equal(contract.mutatesWorkspace, false);
+  assert.equal(contract.sandbox, 'workspace-write');
+  assert.equal(contract.sideEffectPolicy, 'none');
+  assert.deepEqual(contract.outputs, ['report']);
+  const verdict = evaluateTaskCompletion({ contract, strictEvidence: true,
+    result: { output: '10 tests passed, 0 failed', evidenceComplete: true,
+      turn: { status: 'completed', items: [{ id: 'cmd', type: 'commandExecution', command: 'node --test test/work-panel.test.js', exitCode: 0, status: 'completed' }] } },
+    workspaceEvidence: { available: true, changed: false } });
+  assert.equal(verdict.decision, 'accept', JSON.stringify(verdict));
+  const writing = compileExecutionContract({ taskKind: 'test', mutatesWorkspace: true });
+  assert.equal(writing.mutatesWorkspace, true);
+  assert.deepEqual(writing.outputs, ['workspace-change']);
+});
 
 test("execution authority follows explicit task intent rather than role names", () => {
   const writer = compileExecutionContract({ key: "docs", taskKind: "implementation", mutatesWorkspace: true, role: "korean-technical-writer" });

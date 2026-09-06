@@ -2595,7 +2595,7 @@ export class McpControlServer {
         key: "work",
         title: args.name ?? args.objective,
         prompt: args.objective,
-        role: args.role ?? (["analysis", "review"].includes(args.taskKind ?? "analysis") ? "reviewer" : "implementer"),
+        role: args.role ?? (args.taskKind === "test" ? "qa" : ["analysis", "review"].includes(args.taskKind ?? "analysis") ? "reviewer" : "implementer"),
         taskKind: args.taskKind ?? "analysis",
         capabilities: args.capabilities ?? [],
         acceptanceCriteria: args.acceptanceCriteria ?? [],

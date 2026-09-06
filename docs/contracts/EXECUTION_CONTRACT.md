@@ -45,7 +45,7 @@
 |---|---|
 | 비변경 분석·검토 | `read-only`, `shared`, `sideEffectPolicy=none`, output `report` |
 | 구현·통합·release | `workspace-write`, `worktree`, `sideEffectPolicy=workspace`, `integrationStrategy=patch` |
-| 프로젝트 비변경 test | `mutatesWorkspace=false`, `shared`; 임시 파일이 필요하므로 writable runtime sandbox 사용 |
+| 기본 test 실행 | `mutatesWorkspace=false`, `outputs=[report]`; 임시 파일을 위한 writable runtime과 프로젝트 변경은 별개. 테스트 코드 작성·수정은 명시적 `mutatesWorkspace=true` 필요 |
 | 로컬 daemon/process 수명주기 | 명시적 `sideEffectPolicy=local-runtime` |
 
 `mutatesWorkspace=false`는 프로젝트 파일을 바꾸지 않는다는 뜻이지 운영체제 수준의 모든 쓰기와 local listener를 금지한다는 뜻이 아니다.

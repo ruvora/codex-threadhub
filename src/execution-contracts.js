@@ -20,7 +20,9 @@ export const EXECUTION_CAPABILITIES = Object.freeze([
   "workspace-write",
   "git-integration",
 ]);
-export const MUTATING_TASK_KINDS = new Set(["implementation", "test", "integration", "release"]);
+// Running tests may write temporary runtime files, not necessarily project files.
+// Test-writing tasks must explicitly request mutatesWorkspace=true.
+export const MUTATING_TASK_KINDS = new Set(["implementation", "integration", "release"]);
 const SANDBOX_LEVEL = { "read-only": 0, "workspace-write": 1, "danger-full-access": 2 };
 const CONTRACT_FIELDS = new Set([
   "version", "taskKind", "mutatesWorkspace", "requiredSandbox", "sandbox", "networkAccess",

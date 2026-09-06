@@ -1331,7 +1331,7 @@ test("control dispatch persists one canonical product-contract failure before cr
   await server.close();
 });
 
-test("direct control request crosses planning without calling AI planner and executes exactly once", async () => {
+for (const taskKind of ['analysis', 'test']) test(`direct ${taskKind} request crosses planning and executes exactly once without requiring edits`, async () => {
   let executions=0;
   const id='01a070b9-4fce-7402-9299-bd5f88ebc539';
   const server=fakeServer({connect:async()=>{},listAgents:async()=>({agents:[],nextCursor:null}),
@@ -1339,7 +1339,7 @@ test("direct control request crosses planning without calling AI planner and exe
     runTask:async(_id,_prompt,options={})=>{executions++;options.onStarted?.({turnId:'direct-turn'});return {output:'검토 완료',turnId:'direct-turn',turn:{status:'completed'}};}},
     {planner:{plan:async()=>{throw new Error('Direct work must not invoke planner');}},schedulerConcurrency:1,schedulerIntervalMs:5});
   try {
-    const request={objective:'읽기 전용 검토. Do not modify files or run tests. 파일 수정 금지.',cwd:'/repo',mode:'direct',pin:true,requestKey:'direct-entry'};
+    const request={objective: taskKind === 'test' ? 'Run node --test test/work-panel.test.js once. 파일 수정 금지.' : '읽기 전용 검토. Do not modify files or run tests. 파일 수정 금지.',taskKind,cwd:'/repo',mode:'direct',pin:true,requestKey:'direct-entry'};
     const response=await server.handleRequest({method:'tools/call',params:{name:'dispatch_control_request',arguments:request}});
     const runId=response.structuredContent.runId;
     assert.equal(response.structuredContent.status,'accepted');
@@ -1350,7 +1350,7 @@ test("direct control request crosses planning without calling AI planner and exe
     assert.equal(run.metadata.planningMethod,'deterministic_direct');
     const tasks=server.registry.listTasks({runId});
     assert.equal(tasks.length,1);assert.equal(tasks[0].attempt,1);assert.equal(tasks[0].claimToken,null);
-    assert.equal(tasks[0].metadata.executionContract.taskKind,'analysis');
+    assert.equal(tasks[0].metadata.executionContract.taskKind,taskKind);
     assert.equal(tasks[0].metadata.executionContract.mutatesWorkspace,false);
     assert.deepEqual(tasks[0].metadata.executionContract.outputs,['report']);
     assert.equal(executions,1);
