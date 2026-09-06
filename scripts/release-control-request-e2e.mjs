@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CodexAppServerClient } from "../src/app-server-client.js";
 import { CodexControlPlane } from "../src/control-plane.js";
+import { OwnedThreadControl } from "../src/owned-thread-control.js";
 import { McpControlServer } from "../src/mcp-server.js";
 import { ControlRegistry } from "../src/registry.js";
 import { TERMINAL_RUN_STATUSES } from "../src/domain-states.js";
@@ -26,7 +27,10 @@ const server = new McpControlServer({ registryPath, sessionWriter: true, schedul
   logger: message => process.stderr.write(`${message}\n`),
   controlFactory: () => {
     const client = new CodexAppServerClient({ codexPath: process.env.CODEX_BIN ?? "/Applications/ChatGPT.app/Contents/Resources/codex", cwd: root, turnTimeoutMs: 5 * 60_000 });
-    return { client, control: new CodexControlPlane(client) };
+    return { client, control: new OwnedThreadControl(client, () => {
+      const worker = new CodexAppServerClient({ codexPath: process.env.CODEX_BIN ?? "/Applications/ChatGPT.app/Contents/Resources/codex", cwd: root, turnTimeoutMs: 5 * 60_000 });
+      return { client: worker, control: new CodexControlPlane(worker) };
+    }) };
   },
 });
 let runId;
@@ -66,6 +70,20 @@ try {
     const status = await server.handleRequest({ method: "tools/call", params: { name: "get_work_status", arguments: { runId } } });
     assert.equal(status.structuredContent.works[0].pinning.hostAction.arguments.threadId, tasks[0].agentId);
   } else assert.ok(tasks.some(t => t.dependencies.length === 3));
+  // Keep the daemon and observer alive: closing them first masks writer leaks.
+  const desktop = new CodexAppServerClient({ cwd: root });
+  try {
+    await desktop.connect();
+    for (const task of tasks) {
+      const loaded = await desktop.request("thread/resume", { threadId: task.agentId });
+      assert.equal(loaded.thread.id, task.agentId);
+      const read = await desktop.request("thread/read", { threadId: task.agentId, includeTurns: true });
+      const turn = read.thread.turns.find(turn => turn.id === task.turnId);
+      assert.equal(turn?.status, "completed");
+      assert.ok(turn.items.some(item => item.type === "agentMessage" && item.text?.trim()));
+    }
+    console.log(JSON.stringify({ desktopHandoff: "pass", threads: tasks.length }));
+  } finally { await desktop.close({ waitForExit: true }); }
   await server.close();
   const reopened = new ControlRegistry({ path: registryPath });
   assert.equal(reopened.getRun(runId).status, "completed");

@@ -50,6 +50,7 @@ test("execution context excludes historical reports but retains explicitly suppl
     assert.equal(context.threadhub_handoffs.kind, "untrusted");
     assert.equal(context.threadhub_rework.kind, "untrusted");
     assert.match(context.threadhub_policy.value, /Do not request another Start/);
+    assert.match(context.threadhub_policy.value, /no matches inferred from exit code 1; output not available/);
     assert.match(context.threadhub_acceptance.value, /Record HEAD before and after/);
     assert.match(context.threadhub_previous_reports.value, /Initial finding/);
     assert.match(context.threadhub_review_policy.value, /complete corrected report/);

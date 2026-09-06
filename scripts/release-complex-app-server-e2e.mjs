@@ -8,6 +8,7 @@ import { join } from "node:path";
 
 import { CodexAppServerClient } from "../src/app-server-client.js";
 import { CodexControlPlane } from "../src/control-plane.js";
+import { OwnedThreadControl } from "../src/owned-thread-control.js";
 import { McpControlServer } from "../src/mcp-server.js";
 import { ControlRegistry } from "../src/registry.js";
 
@@ -58,7 +59,10 @@ try {
     logger: (message) => process.stderr.write(`[ruvora-complex-e2e] ${message}\n`),
     controlFactory: () => {
       const client = new CodexAppServerClient({ codexPath, cwd: root, turnTimeoutMs: 15 * 60_000 });
-      return { client, control: new CodexControlPlane(client) };
+      return { client, control: new OwnedThreadControl(client, () => {
+        const worker = new CodexAppServerClient({ codexPath, cwd: root, turnTimeoutMs: 15 * 60_000 });
+        return { client: worker, control: new CodexControlPlane(worker) };
+      }) };
     },
   });
   server.startBackground();
@@ -164,6 +168,19 @@ try {
     workers: Object.fromEntries([...byKey].map(([key, task]) => [key, { threadId: task.agentId, turnId: task.turnId }])),
   };
 
+  // Production ownership topology, with the daemon still alive. A shutdown
+  // before this check would hide leaked writers on workers or the orchestrator.
+  const viewer = new CodexAppServerClient({ codexPath, cwd: root });
+  try {
+    await viewer.connect();
+    for (const threadId of new Set([identities.orchestratorThreadId, ...tasks.map(t => t.agentId)])) {
+      const resumed = await viewer.request("thread/resume", { threadId });
+      assert.equal(resumed.thread.id, threadId);
+      const read = await viewer.request("thread/read", { threadId, includeTurns: true });
+      assert.ok(read.thread.turns.some(turn => turn.status === "completed" && turn.items.some(item => item.type === "agentMessage" && item.text?.trim())));
+    }
+    console.log(JSON.stringify({ ownershipHandoff: "pass", workers: tasks.length, orchestrator: true }));
+  } finally { await viewer.close({ waitForExit: true }); }
   await server.close();
   server = null;
   const reopened = new ControlRegistry({ path: registryPath });

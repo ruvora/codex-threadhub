@@ -2,6 +2,35 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assertExecutionContract, compileExecutionContract } from "../src/execution-contracts.js";
+import { evaluateTaskCompletion } from "../src/completion-evaluator.js";
+
+test('Workspace static checks and explicitly excluded host checks do not request runtime authority', () => {
+  const contract = compileExecutionContract({ taskKind: 'test', tools: ['shell','filesystem'], acceptanceCriteria: [
+    'Status, refresh, and rendering only project recorded or observed state and never trigger work or semantic indexing.',
+    'UI deliverables support static and component-level inspection; native-app and browser success are not claimed.',
+    'CLI and MCP tests use subprocess pipes; UI tests use static or component inspection without browser or listening sockets.',
+    'No browser inspection or listening socket is attempted, and unexecuted host checks are not reported as passed.'
+  ] });
+  assert.equal(contract.executionCapabilities.includes('browser-inspection'),false);
+  assert.equal(contract.executionCapabilities.includes('localhost-listen'),false);
+  assert.throws(() => compileExecutionContract({ taskKind:'test', tools:['shell'], executionCapabilities:['browser-inspection'], acceptanceCriteria:['No browser inspection is attempted.'] }), /browser-capable/);
+});
+
+test('test execution defaults to a report and does not require a project change', () => {
+  const contract = compileExecutionContract({ key: 'work', taskKind: 'test', workspaceMode: 'shared' });
+  assert.equal(contract.mutatesWorkspace, false);
+  assert.equal(contract.sandbox, 'workspace-write');
+  assert.equal(contract.sideEffectPolicy, 'none');
+  assert.deepEqual(contract.outputs, ['report']);
+  const verdict = evaluateTaskCompletion({ contract, strictEvidence: true,
+    result: { output: '10 tests passed, 0 failed', evidenceComplete: true,
+      turn: { status: 'completed', items: [{ id: 'cmd', type: 'commandExecution', command: 'node --test test/work-panel.test.js', exitCode: 0, status: 'completed' }] } },
+    workspaceEvidence: { available: true, changed: false } });
+  assert.equal(verdict.decision, 'accept', JSON.stringify(verdict));
+  const writing = compileExecutionContract({ taskKind: 'test', mutatesWorkspace: true });
+  assert.equal(writing.mutatesWorkspace, true);
+  assert.deepEqual(writing.outputs, ['workspace-change']);
+});
 
 test("execution authority follows explicit task intent rather than role names", () => {
   const writer = compileExecutionContract({ key: "docs", taskKind: "implementation", mutatesWorkspace: true, role: "korean-technical-writer" });
@@ -31,23 +60,18 @@ test("local runtime lifecycle is distinct from external system mutation", () => 
 });
 
 test("runtime capabilities are independent from project mutation and drive sandbox preflight", () => {
-  const serverTest = compileExecutionContract({
+  assert.throws(() => compileExecutionContract({
     key: "server-test",
     taskKind: "test",
     mutatesWorkspace: false,
     executionCapabilities: ["process-execution", "temporary-filesystem-write", "localhost-listen"],
-  });
-  assert.equal(serverTest.sandbox, "workspace-write");
-  assert.equal(serverTest.mutatesWorkspace, false);
-  assert.equal(serverTest.workspaceMode, "shared");
-  const inferredServer = compileExecutionContract({
+  }), { code: 'EXECUTION_CONTRACT_UNSUPPORTED_LOCALHOST_SANDBOX' });
+  assert.throws(() => compileExecutionContract({
     key: "inferred-server",
     taskKind: "review",
     mutatesWorkspace: false,
     acceptanceCriteria: ["Start a local server and verify its 127.0.0.1 listener."],
-  });
-  assert.equal(inferredServer.sandbox, "workspace-write");
-  assert.ok(inferredServer.executionCapabilities.includes("localhost-listen"));
+  }), { code: 'EXECUTION_CONTRACT_UNSUPPORTED_LOCALHOST_SANDBOX' });
   assert.throws(() => compileExecutionContract({
     key: "blocked-server-test",
     taskKind: "test",

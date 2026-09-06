@@ -283,6 +283,27 @@ test("prose warnings persist without consuming a planner rework", async () => {
   } finally { registry.close(); }
 });
 
+test('Fold planning receives constraints and preserves task-specific rejected drafts', async () => {
+  const registry = new ControlRegistry({ path: ':memory:' });
+  const roles = new RoleTemplateManager(registry); roles.seedBuiltins();
+  const prompts=[];
+  const planner = new PlannerEngine({ registry, contextManager:new ContextManager(registry), roleTemplates:roles,
+    getControl:async()=>({ spawnAgent:async()=>({id:'fold-planner',cwd:'/repo'}), runTask:async(_id,prompt)=>{
+      prompts.push(prompt);
+      return {output:JSON.stringify({summary:'Fold',risks:[],tasks:[{key:'integrate',title:'Implement',prompt:'Implement',role:'implementer',taskKind:'implementation',mutatesWorkspace:true,workspaceMode:'shared',integrationStrategy:prompts.length===1?'patch':'none',tools:['shell','filesystem'],acceptanceCriteria:[],dependsOn:[]}]})};
+    }}), decorateAgent:async()=>{} });
+  try {
+    const result=await planner.plan({objective:'Build Fold',cwd:'/repo',constraints:['Sequential shared workspace only. No sibling changes.']});
+    assert.equal(prompts.length,2);
+    assert.match(prompts[0],/Sequential shared workspace only/);
+    assert.match(prompts[1],/Task integrate: Shared workspace/);
+    assert.equal(result.plan.tasks[0].integrationStrategy,'none');
+    assert.equal(result.metadata.rejectedDrafts.length,1);
+    assert.equal(result.metadata.rejectedDrafts[0].draft.tasks[0].integrationStrategy,'patch');
+    assert.equal(registry.listTasks().length,0);
+  } finally {registry.close();}
+});
+
 test("planner compiles execution contracts before persisting the graph and retries invalid policy", async () => {
   const registry = new ControlRegistry({ path: ":memory:" });
   const roles = new RoleTemplateManager(registry);

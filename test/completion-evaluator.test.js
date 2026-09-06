@@ -112,3 +112,23 @@ test("Master synthesis cannot describe a failed Run as an overall success", () =
   assert.equal(result.consistent, false);
   assert.equal(result.runStatus, "failed");
 });
+
+test('nonzero diagnostics require exact independent review and retain warnings', () => {
+  const result = { evidenceComplete:true, output:'G0 is unverified, local implementation delivered',
+    turn:{status:'completed',items:[{id:'diagnostic',type:'commandExecution',command:'node scripts/g0-harness.mjs',status:'completed',exitCode:3}]}};
+  const options = {result,contract:analysisContract,acceptanceCriteria:['local core works; native integration may remain unverified']};
+  assert.equal(evaluateTaskCompletion({...options,phase:'execution'}).decision,'accept');
+  for (const commandAssessments of [[], [{itemId:'wrong',exitCode:3,disposition:'expected_nonzero',evidence:['source']}],
+    [{itemId:'diagnostic',exitCode:0,disposition:'expected_nonzero',evidence:['source']}],
+    [{itemId:'diagnostic',exitCode:3,disposition:'expected_nonzero',evidence:[]}],
+    [{itemId:'diagnostic',exitCode:3,disposition:'unresolved',evidence:['source']}]] ) {
+    const verdict=evaluateTaskCompletion({...options,validation:{decision:'accept',commandAssessments}});
+    assert.equal(verdict.decision,'attention');assert.equal(verdict.retryable,false);
+  }
+  const validation={decision:'accept',commandAssessments:[{itemId:'diagnostic',exitCode:3,disposition:'optional_unavailable',evidence:['inspected source: exit 3 means NOT VERIFIED; criterion permits blocked mode']} ]};
+  assert.equal(evaluateTaskCompletion({...options,validation}).decision,'accept_with_warnings');
+  assert.equal(evaluateTaskCompletion({...options,validation:{...validation,decision:'reject'}}).decision,'reject');
+  assert.equal(evaluateTaskCompletion({...options,acceptanceCriteria:[]}).decision,'reject');
+  const failedTest={...result,turn:{status:'completed',items:[{...result.turn.items[0],command:'node --test',exitCode:1}]}};
+  assert.equal(evaluateTaskCompletion({...options,result:failedTest,phase:'execution'}).decision,'reject');
+});

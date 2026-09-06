@@ -5,12 +5,15 @@ import readline from "node:readline";
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
+import { readParentPermissions, inheritPermissions, permissionRunOptions } from "./parent-permissions.js";
 import { CodexAppServerClient } from "./app-server-client.js";
 import { CodexControlPlane } from "./control-plane.js";
+import { OwnedThreadControl } from "./owned-thread-control.js";
 import { ControlRegistry } from "./registry.js";
 import { AgentRouter, normalizeStatus, requirementMatrix } from "./router.js";
 import { DashboardServer } from "./dashboard-server.js";
-import { workStatus } from "./work-status.js";
+import { workStatus, workSummary } from "./work-status.js";
+import { restoreNativeEvidence } from "./native-evidence.js";
 import { hostPinning } from "./host-pinning.js";
 import { workContext, WORK_CONVERSATION_POLICY } from "./work-conversation.js";
 import { dependencyEvidence, executionReports } from "./task-evidence.js";
@@ -933,7 +936,7 @@ const TOOLS = [
   {
     name: "show_work_progress",
     title: "Show compact work progress",
-    description: "Prepare a read-only, run-scoped live progress panel. Use the returned open_in_codex action to attach it beside the representative task when the user requests a work panel. This does not open UI by itself and never starts a worker or refresh turn. The panel offers task deep links without message or execution side effects; opening depends on the host, not URL creation.",
+    description: "Prepare a read-only, run-scoped live progress panel. Use the returned open_in_codex action to attach it beside the current requesting conversation immediately after acceptance, even before a representative exists. This does not open UI by itself and never starts a worker or refresh turn. The panel offers task deep links without message or execution side effects; opening depends on the host, not URL creation.",
     inputSchema: { type: "object", properties: { runId: { type: "string", minLength: 1 } }, required: ["runId"], additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
@@ -976,7 +979,10 @@ export class McpControlServer {
         cwd: process.env.CODEX_CONTROL_CWD ?? process.cwd(),
         runtime,
       });
-      return { client, control: new CodexControlPlane(client) };
+      return { client, control: new OwnedThreadControl(client, () => {
+        const worker = new CodexAppServerClient({ cwd: process.env.CODEX_CONTROL_CWD ?? process.cwd(), runtime });
+        return { client: worker, control: new CodexControlPlane(worker) };
+      }) };
     });
     this.client = null;
     this.control = null;
@@ -1300,6 +1306,7 @@ export class McpControlServer {
             }
           }
         }
+        await this.control?.close?.();
         await this.client?.close?.();
         await Promise.allSettled([...this.activeTaskPromises]);
         const recovered = this.registry.recoverInterruptedTasks({ workerId: this.instanceId });
@@ -1308,6 +1315,7 @@ export class McpControlServer {
     }
     this.lines?.close();
     if (this.ownsDashboardServer) await this.dashboardServer?.close?.();
+    await this.control?.close?.();
     await this.client?.close?.();
     if (this.ownsRegistry) this.registry.close();
   }
@@ -1321,7 +1329,7 @@ export class McpControlServer {
           resources: { subscribe: false, listChanged: false },
         },
         serverInfo: { name: "codex-control-plane", version: "0.14.0" },
-        instructions: "Use this daemon as the single Codex thread writer. Dispatch automatically plans and starts work without READY placeholders or another Start. Default to get_work_status: work name, status, progress and work link only. Keep internal hierarchy invisible: use ordinary work names and localized Open work / View result labels, never master/slave, nodes, Orchestrator, Run IDs or role names in normal replies. Show detailed dashboards only on explicit request. Use codex://threads/<UUID> links only for actual existing local task IDs; never treat a rendered link as confirmed navigation. When the user asks to open a result, call navigate_to_codex_page with the returned threadId; confirm only navigated=true. Use host navigation/pinning tools for returned real thread IDs when requested, never send a turn for navigation. The daemon never appends terminal results to the requesting thread.",
+        instructions: "Use this daemon as the single Codex thread writer. Dispatch automatically plans and starts work without READY placeholders or another Start. Default to get_work_status: work name, status, progress and work link. Always include the actual representative work link, including on status replies. Immediately after each new dispatch is accepted, before waiting for a representative, use presentation.initialPanel to call show_work_progress and pass its hostAction to open_in_codex once, unless the user opts out. Keep the host action unchanged: it omits threadId and opens beside the current requesting conversation even during planning. This compact progress dashboard is distinct from detailed diagnostics; report queued placement honestly and do not switch the current conversation or reopen user-closed panels. If preparation outlasts the bounded wait, report pending link and pin and finish it at the next user interaction. Keep internal hierarchy invisible: use ordinary work names and localized Open work / View result labels, never master/slave, nodes, Orchestrator, Run IDs or role names in normal replies. Show detailed dashboards only on explicit request. Use codex://threads/<UUID> links only for actual existing local task IDs; never treat a rendered link as confirmed navigation. When the user asks to open a result, call navigate_to_codex_page with the returned threadId; confirm only navigated=true. Use host navigation/pinning tools for returned real thread IDs when requested, never send a turn for navigation. The daemon never appends terminal results to the requesting thread.",
       };
     }
     if (message.method === "ping") return {};
@@ -1364,6 +1372,12 @@ export class McpControlServer {
         control ??= await this.#getControl();
         return control;
       };
+      const permissionTools = new Set(["spawn_agent", "fork_agent", "run_agent_task", "dispatch_agent_task", "prepare_agent_run", "dispatch_control_request", "plan_agent_run", "prepare_global_run"]);
+      if (permissionTools.has(name) && context.hostOrigin?.threadId) {
+        const parentPermissions = await readParentPermissions(await getControl(), context.hostOrigin);
+        args = inheritPermissions(args, parentPermissions);
+        if (args.tasks) args.tasks = args.tasks.map(task => inheritPermissions(task, parentPermissions));
+      }
       let result;
       if (name === "list_agents") {
         result = { agents: this.registry.listAgents({ cwd: args.cwd, limit: args.limit ?? 20, scope: args.scope, archived: args.archived }), nextCursor: null, source: "registry" };
@@ -1442,7 +1456,7 @@ export class McpControlServer {
         const agent = await activeControl.forkAgent(args.threadId, {
           cwd: args.cwd,
           sandbox: args.sandbox ?? "read-only",
-          approvalPolicy: "never",
+          approvalPolicy: args.approvalPolicy ?? "never",
           lastTurnId: args.lastTurnId,
           ephemeral: args.ephemeral ?? false,
         });
@@ -1487,7 +1501,8 @@ export class McpControlServer {
               authorizationManifests: args.authorizationManifests,
               projectRuns: args.projectRuns.map((entry) => ({
                 membership: entry.membership ?? "required",
-                run: { id: entry.id, cwd: entry.cwd, name: entry.name ?? null }, tasks: entry.tasks,
+                run: { id: entry.id, cwd: entry.cwd, name: entry.name ?? null, metadata: { parentPermissions: args.parentPermissions ?? null } },
+                tasks: entry.tasks.map(task => ({ ...inheritPermissions(task, args.parentPermissions), metadata: { parentPermissions: args.parentPermissions ?? null } })),
               })),
               dependencies: args.dependencies ?? [],
             });
@@ -1574,6 +1589,7 @@ export class McpControlServer {
             requestKey: args.requestKey ? `${args.requestKey}:run:v${plan.version}` : undefined,
             planId: plan.id,
             tasks: plan.plan.tasks,
+            parentPermissions: args.parentPermissions,
             dispatchPath: estimate.dispatchPath,
             contextSnapshot: this.contextResolver.assertSnapshot(plan.metadata?.contextSnapshotId),
             autoStart: true,
@@ -1635,11 +1651,10 @@ export class McpControlServer {
         const run = this.registry.getRun(args.runId);
         if (!run) throw new Error("Work not found");
         const work = workStatus(this.registry, run);
-        if (!work.master?.threadId) throw new Error("대표 작업을 준비 중입니다. 생성된 뒤 패널을 열어주세요.");
         const dashboard = await this.#ensureDashboardServer();
         const panelUrl = dashboard.progressUrl(run.id);
         result = { work, panelUrl, opened: false, hostAction: {
-          tool: "open_in_codex", arguments: { threadId: work.master.threadId, placement: "right", target: { type: "browser", url: panelUrl } },
+          tool: "open_in_codex", arguments: { placement: "right", target: { type: "browser", url: panelUrl } },
         } };
       } else if (name === "show_agent_dashboard") {
         const hostRequesterThreadId = context.hostOrigin?.threadId ?? null;
@@ -1794,6 +1809,15 @@ export class McpControlServer {
     try {
       if (!args.prompt?.trim()) throw new Error("prompt must not be empty");
       roleTemplate = args.role ? this.roleTemplates.resolve(args.role) : { name: "agent", sandbox: "read-only", approvalPolicy: "never", capabilities: [], tools: [] };
+      // Explicit IDs bypass automatic routing; enforce the same plane boundary
+      // before acquiring a writer or resuming a persistent instruction context.
+      for (const threadId of [args.threadId, args.preparedAgentId].filter(Boolean)) {
+        if (isControlPlaneAgent(this.registry.getAgent(threadId))) {
+          throw Object.assign(new Error("Execution contract cannot use a planning, validation or orchestration thread as a worker"), {
+            code: "EXECUTION_CONTRACT_THREAD_ROLE_MISMATCH", nextAction: "repair_routing", retryable: false,
+          });
+        }
+      }
       const persistedContract = this.registry.getTask(taskId)?.metadata?.executionContract;
       executionContract = assertExecutionContract(args.executionContract?.fingerprint
         ? args.executionContract
@@ -2163,15 +2187,7 @@ export class McpControlServer {
           model,
           effort,
           approvalPolicy,
-          ...(networkAccess ? {
-            sandboxPolicy: {
-              type: "workspaceWrite",
-              writableRoots: [effectiveCwd],
-              networkAccess: true,
-              excludeTmpdirEnvVar: false,
-              excludeSlashTmp: false,
-            },
-          } : {}),
+          ...permissionRunOptions({ sandbox, networkAccess, approvalPolicy }, effectiveCwd),
           timeoutMs: args.timeoutMs ?? 1_800_000,
           onStarted: ({ turnId }) => {
             this.registry.setClaimTurn(taskId, this.instanceId, claimToken, turnId);
@@ -2201,7 +2217,7 @@ export class McpControlServer {
         }
       }
       const strictEvidence = task.evidenceComplete !== undefined;
-      const executionVerdict = evaluateTaskCompletion({ result: task, contract: executionContract, phase: "execution", strictEvidence });
+      const executionVerdict = evaluateTaskCompletion({ result: task, contract: executionContract, acceptanceCriteria: this.registry.getTask(taskId)?.metadata?.acceptanceCriteria ?? [], phase: "execution", strictEvidence });
       if (!['accept', 'accept_with_warnings'].includes(executionVerdict.decision)) {
         this.registry.updateTask(taskId, { metadata: { completionVerdict: executionVerdict, workspaceEvidence } });
         const outcomeFailure = completionFailure(executionVerdict);
@@ -2239,6 +2255,8 @@ export class McpControlServer {
             acceptanceCriteria,
             output: task.output,
             executionItems: task.executionItems ?? task.turn?.items ?? [],
+            nativeEvidence: task.nativeEvidence,
+            workerToolReceipts: task.workerToolReceipts,
             cwd: effectiveCwd,
             model: args.validationModel,
             effort: args.validationEffort,
@@ -2270,7 +2288,7 @@ export class McpControlServer {
           });
           this.registry.updateTask(taskId, { metadata: { completionVerdict, workspaceEvidence, postconditionEvidence } });
           persistedTask = ["accept", "accept_with_warnings"].includes(completionVerdict.decision)
-            ? this.registry.finishValidationClaim(taskId, this.instanceId, claimToken, validation)
+            ? this.registry.finishValidationClaim(taskId, this.instanceId, claimToken, { ...validation, decision: completionVerdict.decision })
             : this.registry.finishFailureClaim(taskId, this.instanceId, claimToken, completionFailure(completionVerdict), {
               terminalStatus: completionVerdict.decision === "attention" ? "recovery_attention" : "failed",
             });
@@ -2395,6 +2413,7 @@ export class McpControlServer {
       maxAttempts: args.maxAttempts ?? (executionContract.sideEffectPolicy === "none" ? 2 : 1),
       retryDelayMs: args.retryDelayMs ?? 5_000,
         metadata: {
+          parentPermissions: args.parentPermissions ?? null,
           runId: args.runId ?? null,
           runName: args.runName ?? null,
           acceptanceCriteria: args.acceptanceCriteria ?? [],
@@ -2460,6 +2479,7 @@ export class McpControlServer {
     }
     const runId = `run_${randomUUID()}`;
     const controlRequest = {
+      parentPermissions: args.parentPermissions ?? null,
       objective: args.objective,
       pin: args.pin ?? true,
       taskKind: args.taskKind,
@@ -2503,6 +2523,7 @@ export class McpControlServer {
     this.registry.recordEvent("run", runId, "run.control_request_accepted", { objective: args.objective, startPolicy: "automatic" });
     this.#scheduleControlDispatch(runId, controlRequest);
     return {
+      ...workStatus(this.registry, this.registry.getRun(runId)),
       runId,
       name: controlRequest.name,
       status: "accepted",
@@ -2586,7 +2607,7 @@ export class McpControlServer {
         key: "work",
         title: args.name ?? args.objective,
         prompt: args.objective,
-        role: args.role ?? (["analysis", "review"].includes(args.taskKind ?? "analysis") ? "reviewer" : "implementer"),
+        role: args.role ?? (args.taskKind === "test" ? "qa" : ["analysis", "review"].includes(args.taskKind ?? "analysis") ? "reviewer" : "implementer"),
         taskKind: args.taskKind ?? "analysis",
         capabilities: args.capabilities ?? [],
         acceptanceCriteria: args.acceptanceCriteria ?? [],
@@ -2604,6 +2625,7 @@ export class McpControlServer {
         constraints: args.constraints,
         requestKey: args.requestKey,
         contextSnapshot,
+        parentPermissions: args.parentPermissions,
       });
       tasks = plan.plan.tasks;
     }
@@ -2619,7 +2641,8 @@ export class McpControlServer {
       cwd: args.cwd,
       requestKey: args.requestKey,
       planId: plan?.id,
-      tasks,
+      tasks: tasks.map(task => inheritPermissions(task, args.parentPermissions)),
+      parentPermissions: args.parentPermissions,
       dispatchPath: estimate.dispatchPath,
       orchestratorThreadId: args.orchestratorThreadId,
       contextSnapshot,
@@ -2683,6 +2706,7 @@ export class McpControlServer {
     const idsByKey = new Map(args.tasks.map((task) => [task.key, `task_${randomUUID()}`]));
     const graphTasks = args.tasks.map((task) => {
       const roleTemplate = task.role ? this.roleTemplates.resolve(task.role) : { sandbox: "read-only", approvalPolicy: "never", model: null };
+      task = inheritPermissions(task, args.parentPermissions);
       const executionContract = compileAndValidateExecutionContract(task, {
         sandbox: args.sandbox,
         networkAccess: args.networkAccess,
@@ -2725,7 +2749,7 @@ export class McpControlServer {
         dependsOn: (task.dependsOn ?? []).map((key) => idsByKey.get(key)),
         maxAttempts: task.maxAttempts ?? (executionContract.sideEffectPolicy === "none" ? 2 : 1),
         retryDelayMs: task.retryDelayMs ?? 5_000,
-        metadata: { key: task.key, title: task.title ?? null, runName: args.name ?? null, dependencyPolicy: task.dependencyPolicy ?? "all_success", acceptanceCriteria: task.acceptanceCriteria ?? [], contextSnapshotId: contextSnapshot.id, contextSnapshotFingerprint: contextSnapshot.fingerprint, executionContract, roleTemplate: { name: roleTemplate.name, skills: roleTemplate.skills ?? [], effort: roleTemplate.effort ?? null, sandbox: roleTemplate.sandbox, approvalPolicy: roleTemplate.approvalPolicy }, execution },
+        metadata: { parentPermissions: args.parentPermissions ?? null, key: task.key, title: task.title ?? null, runName: args.name ?? null, dependencyPolicy: task.dependencyPolicy ?? "all_success", acceptanceCriteria: task.acceptanceCriteria ?? [], contextSnapshotId: contextSnapshot.id, contextSnapshotFingerprint: contextSnapshot.fingerprint, executionContract, roleTemplate: { name: roleTemplate.name, skills: roleTemplate.skills ?? [], effort: roleTemplate.effort ?? null, sandbox: roleTemplate.sandbox, approvalPolicy: roleTemplate.approvalPolicy }, execution },
       };
     });
     const workspacePreflight = graphTasks.some((task) => task.metadata?.executionContract?.workspaceMode === "worktree")
@@ -2741,6 +2765,7 @@ export class McpControlServer {
         cwd: args.cwd ?? null,
         status: "preparing",
         metadata: {
+          parentPermissions: args.parentPermissions ?? null,
           atomic: true,
           dispatchPath: estimate.dispatchPath,
           complexity: estimate,
@@ -2805,8 +2830,8 @@ export class McpControlServer {
       const template = this.roleTemplates.resolve("orchestrator");
       const agent = await control.spawnAgent({
         cwd: run.cwd,
-        sandbox: "read-only",
-        approvalPolicy: "never",
+        sandbox: run.metadata?.parentPermissions?.sandbox ?? "read-only",
+        approvalPolicy: run.metadata?.parentPermissions?.approvalPolicy ?? "never",
         model: template.model,
         developerInstructions: `${template.developerInstructions}\n\nYou own orchestration context and final synthesis for Run ${run.id}. The daemon scheduler owns queue mechanics, claims, fencing, retries, and approvals. Do not edit files or open the Control Plane dashboard.`,
         ephemeral: false,
@@ -2871,6 +2896,7 @@ export class McpControlServer {
       runOptions: {
         cwd: run.cwd,
         approvalPolicy: "never",
+        ...permissionRunOptions(run.metadata?.parentPermissions, run.cwd),
         timeoutMs: 180_000,
       },
     });
@@ -3146,7 +3172,7 @@ export class McpControlServer {
       });
     }
     return acceptanceCriteria.length
-      ? this.registry.finishValidationClaim(task.id, task.workerId, task.claimToken, validation)
+      ? this.registry.finishValidationClaim(task.id, task.workerId, task.claimToken, { ...validation, decision: completionVerdict.decision })
       : this.registry.completeClaim(task.id, task.workerId, task.claimToken, { output: result?.output ?? task.output, turnId: result?.turnId ?? task.turnId });
   }
 
@@ -3168,7 +3194,8 @@ export class McpControlServer {
         continue;
       }
       try {
-        const turn = readTurn(await control.inspectAgent(threadId, { includeTurns: true }), turnId);
+        const nativeRead = await control.inspectAgent(threadId, { includeTurns: true });
+        const turn = readTurn(nativeRead, turnId);
         if (!turn || !["completed", "failed", "interrupted"].includes(turn.status)) {
           const probes = Number(task.metadata?.reconciliation?.probes ?? 0) + 1;
           this.registry.updateTask(task.id, { heartbeatAt: new Date().toISOString(), metadata: { reconciliation: { probes, lastCheckedAt: new Date().toISOString(), state: turn ? "still_running" : "turn_missing" } } });
@@ -3205,10 +3232,14 @@ export class McpControlServer {
             this.registry.finishFailureClaim(task.id, task.workerId, task.claimToken, failure, { terminalStatus: "validation_failed" });
           }
         } else if (turn.status === "completed" && ["running", "approval_waiting"].includes(task.status)) {
-          const executionResult = { turn, output, turnId, executionItems: turn.items ?? [], completionMethod: "thread/read-recovery", recoveredFromRead: true, evidenceComplete: true };
+          const native = await restoreNativeEvidence({ path: nativeRead?.thread?.path, threadId, turnId, items: turn.items ?? [] });
+          const executionResult = { turn: {...turn, items:native.items}, output, turnId, executionItems: native.items,
+            nativeEvidence: native.nativeEvidence, workerToolReceipts: native.workerToolReceipts,
+            completionMethod: "thread/read-recovery", recoveredFromRead: true, evidenceComplete: true };
           const executionVerdict = evaluateTaskCompletion({
             result: executionResult,
             contract: task.metadata?.executionContract ?? task.metadata?.execution?.executionContract ?? {},
+            acceptanceCriteria: task.metadata?.acceptanceCriteria ?? [],
             phase: "execution",
             strictEvidence: true,
           });
@@ -3224,6 +3255,8 @@ export class McpControlServer {
               acceptanceCriteria: task.metadata.acceptanceCriteria,
               output,
               executionItems: executionResult.executionItems,
+              nativeEvidence: executionResult.nativeEvidence,
+              workerToolReceipts: executionResult.workerToolReceipts,
               cwd: task.metadata?.effectiveCwd ?? task.cwd,
             });
             const current = this.registry.getTask(task.id);
@@ -3307,10 +3340,10 @@ export class McpControlServer {
         prompt, timeoutMs: 180_000, control, allowTerminalParent: true, threadAction: "resume",
         additionalContext,
         acquireThread: async () => {
-          const resumed = await control.resumeAgent(agentId, { cwd: run.cwd, sandbox: "read-only", approvalPolicy: "never" });
+          const resumed = await control.resumeAgent(agentId, { cwd: run.cwd, sandbox: run.metadata?.parentPermissions?.sandbox ?? "read-only", approvalPolicy: run.metadata?.parentPermissions?.approvalPolicy ?? "never" });
           return resumed;
         },
-        runOptions: { cwd: run.cwd, approvalPolicy: "never", timeoutMs: 180_000 },
+        runOptions: { cwd: run.cwd, approvalPolicy: "never", ...permissionRunOptions(run.metadata?.parentPermissions, run.cwd), timeoutMs: 180_000 },
       });
       const consistency = evaluateSynthesisConsistency(run.status, finalized.output);
       this.registry.updateRunResultSynthesis(run.id, {
@@ -3590,7 +3623,11 @@ export class McpControlServer {
       runId: value.runId ?? value.run?.id ?? value.graph?.run?.id ?? null,
       status: value.status ?? value.run?.status ?? value.graph?.run?.status ?? null,
     } : value;
-    const content = [{ type: "text", text: JSON.stringify(contentValue, null, 2) }];
+    const works = !isError && (Array.isArray(value?.works) ? value.works
+      : value?.accepted && value?.statusTool === "get_work_status" && value.progress ? [value] : null);
+    const content = [{ type: "text", text: works
+      ? works.map(workSummary).join('\n\n---\n\n') || '표시할 작업이 없습니다.'
+      : JSON.stringify(contentValue, null, 2) }];
     if (!isError && value?.dashboardUrl && !embedded) {
       content.push({
         type: "resource_link",

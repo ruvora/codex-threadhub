@@ -1,4 +1,4 @@
-import { isTestCommand, supersededTestFailure, commandText, commandExitCode } from "./command-evidence.js";
+import { isTestCommand, supersededTestFailure, commandText, commandExitCode, isEmptyFileSearch } from "./command-evidence.js";
 
 export function classifyFailure(error, stage = "execution") {
   const message = String(error?.message ?? error ?? "Unknown failure");
@@ -100,7 +100,7 @@ function structuredFailure(output) {
 }
 
 /** Return a classified failure when a terminal Codex turn did not actually succeed. */
-export function assessTaskResult(result = {}) {
+export function assessTaskResult(result = {}, options = {}) {
   const turn = result.turn ?? {};
   const status = turn.status?.type ?? turn.status ?? result.status ?? "completed";
   if (status !== "completed") {
@@ -128,8 +128,12 @@ export function assessTaskResult(result = {}) {
       continue;
     }
     const diagnostic = commandOutput(item);
+    if (isEmptyFileSearch(item)) continue;
     if (supersededTestFailure(item, items.slice(index + 1))) continue;
-    const failure = classifyFailure(new Error(`${command || "Command"} exited with code ${exitCode ?? "unknown"}${diagnostic ? `\n${diagnostic}` : ""}`), "execution");
+    // Command arguments can contain words such as approval, timeout or lease as
+    // search terms/file names. They are evidence, not runtime error diagnostics.
+    const failure = classifyFailure(new Error(`Command exited with code ${exitCode ?? "unknown"}${diagnostic ? `\n${diagnostic}` : ""}`), "execution");
+    failure.message = `${command || "Command"} exited with code ${exitCode ?? "unknown"}${diagnostic ? `\n${diagnostic}` : ""}`;
     if (!["configuration", "environment", "infrastructure", "coordination", "approval", "workspace"].includes(failure.type)) {
       failure.type = isTestCommand(command) ? "test" : "command";
       failure.category = "product";
@@ -139,6 +143,13 @@ export function assessTaskResult(result = {}) {
     failure.command = command || null;
     failure.exitCode = exitCode;
     failure.cause = failure.message;
+    // Only a separate acceptance review may interpret a diagnostic's nonzero
+    // exit. Never defer test failures, authority failures or unknown exits.
+    if (options.commandReviews && failure.type === "command" && item.id
+      && Number.isInteger(exitCode) && exitCode !== 0) {
+      options.commandReviews.push({ itemId: item.id, command, exitCode, failure });
+      continue;
+    }
     return failure;
   }
 

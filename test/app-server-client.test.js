@@ -31,6 +31,21 @@ function captureRequests(child, handler) {
   });
 }
 
+test("writer handoff waits for actual process exit", async () => {
+  const child = fakeProcess();
+  const client = new CodexAppServerClient();
+  client.process = child;
+  let closed = false;
+  const closing = client.close({ waitForExit: true }).then(() => { closed = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(closed, false);
+  child.exitCode = 0;
+  child.emit("exit", 0, null);
+  await closing;
+  assert.equal(closed, true);
+  assert.equal(client.process, null);
+});
+
 test("connect performs handshake and listAgents maps threads", async () => {
   const child = fakeProcess();
   let spawnOptions;

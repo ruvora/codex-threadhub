@@ -37,6 +37,7 @@ export class McpDaemonProxy {
     if (message.id === undefined) return;
     try {
       const params = structuredClone(message.params ?? {});
+      if (message.method === "tools/call" && params._meta) delete params._meta["codex/origin"];
       if (message.method === "tools/call" && this.requesterThreadId) {
         params._meta = {
           ...(params._meta ?? {}),

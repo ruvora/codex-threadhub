@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { afterEach } from "node:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -10,13 +10,18 @@ import { ControlRegistry } from "../src/registry.js";
 import { ContextResolver } from "../src/context-resolver.js";
 import { compileExecutionContract, contractFingerprint } from "../src/execution-contracts.js";
 
+const testServers = [];
+afterEach(async () => { for (const server of testServers.splice(0)) await server.close(); });
+
 function fakeServer(control, options = {}) {
-  return new McpControlServer({
+  const server = new McpControlServer({
     controlFactory: () => ({ client: { close: async () => {} }, control }),
     registry: new ControlRegistry({ path: ":memory:" }),
     recoverInterruptedTasks: false,
     ...options,
   });
+  testServers.push(server);
+  return server;
 }
 
 async function waitUntil(predicate, timeoutMs = 1_000) {
@@ -334,6 +339,29 @@ test("invalid persisted contracts fail before claim without consuming an attempt
   assert.equal(server.registry.getRun("invalid_run").status, "failed");
   assert.equal(controlConnections, 0);
   await server.close();
+});
+
+test("persisted unsupported loopback contract is blocked before attempt or connection", async () => {
+  let connections = 0;
+  const server = fakeServer({ connect: async () => { connections++; } }, { schedulerConcurrency: 1, schedulerIntervalMs: 5 });
+  const contract = compileExecutionContract({ key: 'loopback', taskKind: 'test', mutatesWorkspace: false });
+  contract.executionCapabilities.push('localhost-listen');
+  contract.fingerprint = contractFingerprint(contract);
+  try {
+    server.registry.createTask({ id: 'loopback', prompt: 'test', cwd: '/repo', metadata: { executionContract: contract, execution: { executionContract: contract } } });
+    server.startBackground();
+    const task = await waitUntil(() => {
+      const current = server.registry.getTask('loopback');
+      return current.status === 'failed' ? current : null;
+    });
+    assert.equal(task.attempt, 0);
+    assert.equal(task.claimToken, null);
+    assert.equal(task.agentId, null);
+    assert.equal(connections, 0);
+    assert.equal(task.metadata.failure.code, 'EXECUTION_CONTRACT_UNSUPPORTED_LOCALHOST_SANDBOX');
+    assert.equal(task.metadata.failure.retryable, false);
+    assert.equal(task.metadata.failure.nextAction, 'repair_contract');
+  } finally { await server.close(); }
 });
 
 test("external persisted contracts are blocked as non-repairable policy before claim", async () => {
@@ -1308,7 +1336,7 @@ test("control dispatch persists one canonical product-contract failure before cr
   await server.close();
 });
 
-test("direct control request crosses planning without calling AI planner and executes exactly once", async () => {
+for (const taskKind of ['analysis', 'test']) test(`direct ${taskKind} request crosses planning and executes exactly once without requiring edits`, async () => {
   let executions=0;
   const id='01a070b9-4fce-7402-9299-bd5f88ebc539';
   const server=fakeServer({connect:async()=>{},listAgents:async()=>({agents:[],nextCursor:null}),
@@ -1316,23 +1344,29 @@ test("direct control request crosses planning without calling AI planner and exe
     runTask:async(_id,_prompt,options={})=>{executions++;options.onStarted?.({turnId:'direct-turn'});return {output:'검토 완료',turnId:'direct-turn',turn:{status:'completed'}};}},
     {planner:{plan:async()=>{throw new Error('Direct work must not invoke planner');}},schedulerConcurrency:1,schedulerIntervalMs:5});
   try {
-    const request={objective:'읽기 전용 검토. Do not modify files or run tests. 파일 수정 금지.',cwd:'/repo',mode:'direct',pin:true,requestKey:'direct-entry'};
+    const request={objective: taskKind === 'test' ? 'Run node --test test/work-panel.test.js once. 파일 수정 금지.' : '읽기 전용 검토. Do not modify files or run tests. 파일 수정 금지.',taskKind,cwd:'/repo',mode:'direct',pin:true,requestKey:'direct-entry'};
     const response=await server.handleRequest({method:'tools/call',params:{name:'dispatch_control_request',arguments:request}});
     const runId=response.structuredContent.runId;
     assert.equal(response.structuredContent.status,'accepted');
+    assert.match(response.content[0].text,/접수됨 · 작업 준비 중/);
+    assert.match(response.content[0].text,/아직 이동 링크가 없습니다/);
     const run=await waitUntil(()=>{const r=server.registry.getRun(runId);return ['completed','failed'].includes(r.status)&&r;});
     assert.equal(run.status,'completed',run.metadata.failure?.cause);
     assert.equal(run.metadata.planningMethod,'deterministic_direct');
     const tasks=server.registry.listTasks({runId});
     assert.equal(tasks.length,1);assert.equal(tasks[0].attempt,1);assert.equal(tasks[0].claimToken,null);
-    assert.equal(tasks[0].metadata.executionContract.taskKind,'analysis');
+    assert.equal(tasks[0].metadata.executionContract.taskKind,taskKind);
     assert.equal(tasks[0].metadata.executionContract.mutatesWorkspace,false);
     assert.deepEqual(tasks[0].metadata.executionContract.outputs,['report']);
     assert.equal(executions,1);
     const status=await server.handleRequest({method:'tools/call',params:{name:'get_work_status',arguments:{runId}}});
     assert.equal(status.structuredContent.works[0].pinning.hostAction.arguments.threadId,id);
+    assert.ok(status.content[0].text.includes(`codex://threads/${id}`));
+    assert.match(status.content[0].text,/성공 1\/1/);
+    assert.doesNotMatch(status.content[0].text,/runId|hostAction|master/);
     const duplicate=await server.handleRequest({method:'tools/call',params:{name:'dispatch_control_request',arguments:request}});
     assert.equal(duplicate.structuredContent.runId,runId);assert.equal(executions,1);
+    assert.ok(duplicate.content[0].text.includes(`codex://threads/${id}`));
   } finally {await server.close();}
 });
 
@@ -1399,10 +1433,16 @@ test("dispatch_control_request has no advanced manual mode and starts automatica
   await server.close();
 });
 
-test("host origin identity is provenance only and results stay in the work navigator", async () => {
+test("host origin supplies native permissions while results stay in the work navigator", async () => {
+  const nativeRoot = mkdtempSync(join(tmpdir(), "host-origin-"));
+  const nativePath = join(nativeRoot, "rollout.jsonl");
+  writeFileSync(nativePath, [
+    { type: "session_meta", payload: { id: "host_thread" } },
+    { type: "turn_context", payload: { turn_id: "host_turn", sandbox_policy: { type: "danger-full-access" }, approval_policy: "never" } },
+  ].map(JSON.stringify).join("\n"));
   const planner = { plan: async () => ({ id: "origin_plan", version: 1, plan: { summary: "origin", tasks: [{ key: "work", prompt: "work", role: "qa", dependsOn: [] }] } }) };
   const dashboardServer = { start: async () => {}, url: () => "http://dashboard", close: async () => {} };
-  const server = fakeServer({ connect: async () => {} }, { planner, dashboardServer, schedulerConcurrency: 0 });
+  const server = fakeServer({ connect: async () => {}, inspectAgent: async id => ({ thread: { id, path: nativePath } }) }, { planner, dashboardServer, schedulerConcurrency: 0 });
   const accepted = await server.handleRequest({
     method: "tools/call",
     params: {
@@ -1417,6 +1457,7 @@ test("host origin identity is provenance only and results stay in the work navig
   assert.equal(run.metadata.controlRequest.resultAccess, "master_thread_navigation");
   assert.deepEqual(accepted.structuredContent.resultAccess, { mode: "master_thread_navigation" });
   await server.close();
+  rmSync(nativeRoot, { recursive: true, force: true });
 });
 
 test("terminal Control Plane runs finalize for dashboard navigation without appending to the origin thread", async () => {
@@ -1803,4 +1844,29 @@ test("close drains then interrupts an active Data Plane turn", async () => {
   await server.close();
   assert.equal(interrupted, 1);
   assert.equal(server.registry.getTask("task_shutdown").status, "interrupted");
+});
+
+test('explicit worker reuse or fork cannot bypass persistent control-role boundary', async () => {
+  for (const reuseExisting of [true,false]) {
+    const calls=[];
+    const server=fakeServer({connect:async()=>{},resumeAgent:async()=>{calls.push('resume');},forkAgent:async()=>{calls.push('fork');},runTask:async()=>{calls.push('run');}});
+    server.registry.upsertAgent({id:'planner-existing',cwd:'/repo',status:'idle'}, {role:'planner',metadata:{controlPlane:true}});
+    const response=await server.handleRequest({method:'tools/call',params:{name:'run_agent_task',arguments:{threadId:'planner-existing',reuseExisting,prompt:'implement',cwd:'/repo',taskKind:'implementation',mutatesWorkspace:true,sandbox:'workspace-write'}}});
+    assert.equal(response.isError,true);
+    assert.match(JSON.stringify(response),/EXECUTION_CONTRACT_THREAD_ROLE_MISMATCH/);
+    assert.deepEqual(calls,[]);
+    await server.close();
+  }
+});
+
+test('diagnostic review completes with durable warnings instead of replaying worker', async () => {
+  let runs=0, reviews=0;
+  const command={id:'gate-item',type:'commandExecution',command:'node scripts/gate.mjs',exitCode:3,status:'completed',aggregatedOutput:'NOT VERIFIED'};
+  const server=fakeServer({connect:async()=>{},spawnAgent:async()=>({id:'worker'}),runTask:async(id,prompt,options)=>{runs++;options.onStarted?.({turnId:'turn'});return {turnId:'turn',turn:{id:'turn',status:'completed',items:[command]},executionItems:[command],evidenceComplete:true,output:'Native gate unverified'};}}, {
+    resultValidator:{validate:async()=>{reviews++;return {decision:'accept',failureKind:'none',summary:'Allowed diagnostic limitation',evidence:['source and acceptance checked'],unmetCriteria:[],commandAssessments:[{itemId:'gate-item',exitCode:3,disposition:'optional_unavailable',evidence:['source contract and receipt checked']} ]};}}
+  });
+  const response=await server.handleRequest({method:'tools/call',params:{name:'run_agent_task',arguments:{prompt:'inspect optional native capability',cwd:'/repo',routingMode:'new',acceptanceCriteria:['report the optional unavailable gate']}}});
+  assert.notEqual(response.isError,true,JSON.stringify(response));
+  assert.equal(runs,1);assert.equal(reviews,1);
+  assert.equal(response.structuredContent.record.status,'completed_with_warnings');
 });

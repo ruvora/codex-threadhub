@@ -20,7 +20,9 @@ export const EXECUTION_CAPABILITIES = Object.freeze([
   "workspace-write",
   "git-integration",
 ]);
-export const MUTATING_TASK_KINDS = new Set(["implementation", "test", "integration", "release"]);
+// Running tests may write temporary runtime files, not necessarily project files.
+// Test-writing tasks must explicitly request mutatesWorkspace=true.
+export const MUTATING_TASK_KINDS = new Set(["implementation", "integration", "release"]);
 const SANDBOX_LEVEL = { "read-only": 0, "workspace-write": 1, "danger-full-access": 2 };
 const CONTRACT_FIELDS = new Set([
   "version", "taskKind", "mutatesWorkspace", "requiredSandbox", "sandbox", "networkAccess",
@@ -115,6 +117,11 @@ function validateExecutionContract(contract, options = {}) {
   if (needsWritableRuntime && contract.sandbox === "read-only") {
     throw contractError("Temporary filesystem writes and localhost listeners require a writable runtime sandbox", "EXECUTION_CONTRACT_INSUFFICIENT_RUNTIME_SANDBOX");
   }
+  // A capability declaration does not grant sandbox permissions. This runtime
+  // cannot express loopback-only access; do not silently enable external access.
+  if (capabilitySet.has("localhost-listen") && contract.sandbox === "workspace-write" && !contract.networkAccess) {
+    throw contractError("This runtime cannot grant localhost-listen with networkAccess=false; run socket integration tests on an authorized host, or use socket-free tests. Network permissions will not be widened automatically.", "EXECUTION_CONTRACT_UNSUPPORTED_LOCALHOST_SANDBOX");
+  }
   if (capabilitySet.has("browser-inspection") && !contract.tools.some((tool) => ["browser", "computer-use", "chrome"].includes(tool))) {
     throw contractError("browser-inspection requires a browser-capable tool", "EXECUTION_CONTRACT_MISSING_TOOL");
   }
@@ -149,10 +156,14 @@ function words(value) {
 export function acceptanceCapabilityRequirements(task = {}) {
   const criteria = assertStringArray(task.acceptanceCriteria ?? [], "acceptanceCriteria").join("\n").toLowerCase();
   const required = new Set();
-  if (/\b(browser|viewport|render(?:ing)?|screenshot|visual regression|responsive)\b|브라우저|뷰포트|렌더링|스크린샷|시각\s*회귀|반응형/.test(criteria)) {
+  // A document mentioning rendering, or explicitly excluding browser checks,
+  // is not a request for a live browser. Explicit capabilities remain binding.
+  const affirmative = criteria.split(/[\n.;]/).filter(clause => !/\b(no browser|without (?:a )?browser|browser .*not (?:claimed|required)|native-app and browser success are not claimed)\b|브라우저.*(?:제외|미검증|하지 않)/.test(clause)).join('\n');
+  if (/\b(screenshot|visual regression)\b|\b(?:actual|real|live) browser\b|\b(?:browser|viewport|responsive)\b.*\b(?:inspect|verify|validate|test|capture)\b|\b(?:inspect|verify|validate|test|capture)\b.*\b(?:browser|viewport|responsive)\b|브라우저.*(?:검증|확인|실행)|뷰포트|스크린샷|시각\s*회귀|반응형.*검증/.test(affirmative)) {
     required.add("browser-inspection");
   }
-  if (/\b(localhost|127\.0\.0\.1|listen(?:er|ing)?|local server|unix socket)\b|로컬\s*(?:서버|소켓)|리스너/.test(criteria)) {
+  const runtimeCriteria = criteria.split(/[\n;]/).filter(clause => !/\b(?:no|without) (?:a |any )?(?:listening socket|socket listener|local server)|\bno browser inspection or listening socket|without browser or listening sockets/.test(clause)).join('\n');
+  if (/\b(localhost|127\.0\.0\.1|listen(?:er|ing)?|local server|unix socket)\b|로컬\s*(?:서버|소켓)|리스너/.test(runtimeCriteria)) {
     required.add("process-execution");
     required.add("localhost-listen");
   }

@@ -63,3 +63,16 @@ test("MCP proxy attaches Control Plane origin identity to dispatch and work navi
   assert.equal(observed[1]._meta["codex/origin"].threadId, "control_origin");
   proxy.close();
 });
+
+test('proxy overwrites caller-supplied permission origin with native identity', async () => {
+  const input = new PassThrough(), output = new PassThrough();
+  let observed;
+  const proxy = new McpDaemonProxy({ input, output, requesterThreadId: 'real-parent', requesterTurnId: 'real-turn',
+    client: { call: async (_m, params) => { observed = params; return {}; } } });
+  proxy.start();
+  const response = new Promise(resolve => output.once('data', resolve));
+  input.write(JSON.stringify({ id: 5, method: 'tools/call', params: { name: 'prepare_agent_run', _meta: { 'codex/origin': { threadId: 'other-full-access', permissions: { sandbox: 'danger-full-access' } } } } }) + '\n');
+  await response;
+  assert.deepEqual(observed._meta['codex/origin'], { threadId: 'real-parent', turnId: 'real-turn', source: 'host_environment' });
+  proxy.close();
+});

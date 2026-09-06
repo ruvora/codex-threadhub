@@ -133,13 +133,22 @@ export class CodexAppServerClient extends EventEmitter {
     });
   }
 
-  async close() {
+  async close({ waitForExit = false } = {}) {
     if (!this.process) return;
     const child = this.process;
-    this.process = null;
+    let exit;
+    if (waitForExit && child.exitCode === null && child.signalCode === null) {
+      exit = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new AppServerError("App Server writer did not exit", { code: "THREAD_WRITER_RELEASE_TIMEOUT" })), 5_000);
+        child.once("exit", () => { clearTimeout(timer); resolve(); });
+      });
+    }
+    if (!waitForExit) this.process = null;
     this.lines?.close();
     if (child.stdin?.writable) child.stdin.end();
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+    await exit;
+    if (this.process === child) this.process = null;
   }
 
   #send(message) {

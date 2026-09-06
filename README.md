@@ -71,13 +71,23 @@ Show the agent dashboard for this project.
 
 The default experience is **work name, status, progress, and Open work / View result**, provided by `get_work_status`. Keep making ordinary requests: there is no execution mode or hierarchy to learn. During preparation, the link is absent rather than a placeholder. Pinning is optional and host-dependent; opening ongoing work lets you observe its record.
 
-Ask **“Keep a small progress panel beside this work”** to see per-task status, issues, and freshness without opening the detailed dashboard. `show_work_progress` prepares a read-only panel; the native host attaches it beside the representative task. It refreshes while visible without model turns and warns when disconnected. This is a side panel, not an insertion into the chat body. Open work links target existing local task conversations without copying identifiers or sending messages. Chat-link navigation has been user-verified; each panel host still requires click verification. Reopen the panel after a daemon restart or link expiry.
+Request acknowledgements and status responses include a compact readable summary,
+not a raw diagnostic object. It distinguishes work still preparing, execution
+failure, and result-validation rejection. Success counts exclude rejected work;
+once the representative conversation exists, its link is included in the response.
+The text reply is a snapshot, not an automatically updating chat card; the separate panel refreshes while visible. A missing link during
+preparation does not mean the request failed; it means the conversation is not yet
+available. Detailed machine data remains available separately.
 
-The compact panel keeps the representative work/result link at the top, with short task descriptions and named dependency arrows below. Action guidance is visible; technical diagnostics stay collapsed. Refreshes preserve existing links and expanded sections. A final result may describe failure or cancellation—it is not a success badge.
+New requests open a small progress panel beside the requesting conversation, even while preparing, to show task links and concise status without opening the detailed dashboard. `show_work_progress` prepares a read-only panel; the native host attaches it beside the current requesting conversation. It refreshes while visible without model turns and warns when disconnected. This is a side panel, not an insertion into the chat body. Open work links target existing local task conversations without copying identifiers or sending messages. Chat-link navigation has been user-verified; each panel host still requires click verification. Reopen the panel after a daemon restart or link expiry.
+
+The compact panel keeps the representative work/result link at the top and shows every subtask link and status immediately, with named dependency arrows. Raw errors, command output, diagnostic sections, and routine timestamps are omitted, including from its read-only API. Open the work conversation or explicitly request the detailed dashboard for diagnosis. Refreshes preserve existing links. A final result may describe failure or cancellation—it is not a success badge.
 
 API callers using explicit `mode: "direct"` get a deterministic single-task plan. Its default intent is read-only analysis; use `taskKind: "implementation"` for an explicitly authorized direct code change. Ordinary natural-language requests should keep the default automatic planning mode.
 
 New delegated work requests a sidebar pin by default (`pin: false` opts out). The calling conversation uses the native app's sidebar tool and verifies its pinned list; the background worker does not pin itself. Only the representative work is pinned, never every subtask. Preparation can be awaited for up to 30 seconds; if the thread or app tool is unavailable, pinning remains pending without blocking execution. Routine status reads do not re-pin work you have unpinned.
+
+New work opens a compact panel beside the requesting conversation immediately, including during preparation. Its task link appears once a real conversation exists. Say “link only” to opt out.
 
 The detailed embedded dashboard opens only when requested. Ask `Open the web dashboard` for the standalone local page. The detailed view shows:
 
@@ -257,3 +267,19 @@ scripts/  runtime parity, deployment, and reinstall preflight
 ## Author
 
 Created and maintained by [ShinYEB](https://github.com/ShinYEB).
+
+### Requesting thread permissions
+
+Hub reads the requesting thread's native turn context before accepting a new
+host-originated dispatch. Its sandbox mode, network access and approval policy
+are saved with the work and inherited by worker, planner, validator and
+orchestrator threads, including their subsequent Turns. Full Access therefore
+remains Full Access at execution time. Role instructions still define what each
+thread should do; runtime permissions do not turn a review into an edit request.
+
+A known parent whose native permissions cannot be read is rejected before child
+creation. Tool arguments and prompt text cannot supply a parent permission grant.
+Calls without a host origin (for example, standalone CLI clients) retain their
+explicit execution contracts. Existing work retains its recorded permissions;
+changing the parent's setting does not retroactively alter running work. Explicit
+multi-project authorization manifests remain additional limits.
