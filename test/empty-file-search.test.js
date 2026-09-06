@@ -38,10 +38,12 @@ test('only a literal diagnostic-free file enumeration can be no-match', () => {
 
 test('native rg no-match and actual errors stay distinct', () => {
   const noMatch = spawnSync('rg', ['--files','-g','__threadhub_nonexistent_6c1f54__'], {encoding:'utf8'});
+  assert.ifError(noMatch.error);
   assert.equal(noMatch.status, 1);
   assert.equal(isEmptyFileSearch(receipt('rg --files -g __threadhub_nonexistent_6c1f54__',
     {exitCode:noMatch.status,stdout:noMatch.stdout,stderr:noMatch.stderr})), true);
   const invalid = spawnSync('rg', ['--files','--invalid-threadhub-option'], {encoding:'utf8'});
+  assert.ifError(invalid.error);
   assert.equal(invalid.status, 2);
   assert.equal(isEmptyFileSearch(receipt('rg --files --invalid-threadhub-option',
     {exitCode:invalid.status,stderr:invalid.stderr})), false);
