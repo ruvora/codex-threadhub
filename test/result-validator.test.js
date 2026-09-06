@@ -12,6 +12,16 @@ const valid = {
   unmetCriteria: [],
 };
 
+test('native evidence conflicts cannot be approved by a model', async () => {
+  const registry=new ControlRegistry({path:':memory:'});
+  try {
+    const validator=new ResultValidator({registry,getControl:()=>{throw Error('must not invoke model');}});
+    const r=await validator.validate({taskId:'conflict',acceptanceCriteria:['verified'],nativeEvidence:{status:'conflicting',conflicts:[{kind:'output_conflict'}]}});
+    assert.equal(r.decision,'reject');
+    assert.equal(r.failureKind,'validation');
+  } finally {registry.close();}
+});
+
 test("validator parser accepts fenced and explanatory structured output", () => {
   assert.deepEqual(parseValidationOutput(`Result follows:\n\`\`\`json\n${JSON.stringify(valid)}\n\`\`\``), valid);
 });

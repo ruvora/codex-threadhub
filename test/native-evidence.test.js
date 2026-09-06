@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { reconcileNativeEvidence } from '../src/native-evidence.js';
+const item = {id:'exec-one',type:'commandExecution',command:"/bin/zsh -lc 'rg --files --hidden -g AGENTS.md'",exitCode:1,aggregatedOutput:null};
+function fixture({thread='thread',turn='turn',output='',exit=1}={}) {
+  return [
+    {type:'session_meta',payload:{id:thread}},
+    {type:'event_msg',payload:{type:'item_completed',thread_id:thread,turn_id:turn,item:{type:'CommandExecution',id:'exec-one',command:['/bin/zsh','-lc','rg --files --hidden -g AGENTS.md'],stdout:output,stderr:'',aggregated_output:output,exit_code:exit}}},
+    {type:'response_item',payload:{type:'custom_tool_call_output',call_id:'call-one',internal_chat_message_metadata_passthrough:{turn_id:turn},output:[{text:JSON.stringify({chunk_id:'8462ac',exit_code:1,output:''})}]}},
+  ].map(JSON.stringify).join('\n');
+}
+test('incident: native empty output survives projection; chunk ID is a different namespace',()=>{
+  const r=reconcileNativeEvidence(fixture(),{threadId:'thread',turnId:'turn',items:[item]});
+  assert.equal(r.items[0].aggregatedOutput,'');
+  assert.equal(item.aggregatedOutput,null);
+  assert.equal(r.workerToolReceipts[0].namespace,'tool_chunk');
+  assert.equal(r.workerToolReceipts[0].chunkId,'8462ac');
+  assert.equal(r.items[0].id,'exec-one');
+  assert.equal(r.nativeEvidence.status,'read');
+});
+test('different sessions and turns cannot supply evidence',()=>{
+  for(const options of [{thread:'other'},{turn:'other'}]) {
+    const r=reconcileNativeEvidence(fixture(options),{threadId:'thread',turnId:'turn',items:[item]});
+    assert.equal(r.items[0].aggregatedOutput,null);
+    assert.equal(r.workerToolReceipts.length,0);
+  }
+});
+test('exit or explicit output conflicts remain conflicts rather than successful corrections',()=>{
+  const r=reconcileNativeEvidence(fixture({exit:2}),{threadId:'thread',turnId:'turn',items:[item]});
+  assert.equal(r.items[0].aggregatedOutput,null);
+  assert.equal(r.nativeEvidence.status,'conflicting');
+  const c=reconcileNativeEvidence(fixture(),{threadId:'thread',turnId:'turn',items:[{...item,aggregatedOutput:'error'}]});
+  assert.equal(c.items[0].aggregatedOutput,'error');
+  assert.equal(c.nativeEvidence.status,'conflicting');
+});

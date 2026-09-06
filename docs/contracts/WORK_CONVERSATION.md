@@ -70,6 +70,22 @@ The panel token is limited to one Run, expires after 24 hours, and cannot access
 
 ## Verification gates
 
+Native evidence reconciliation reads only the exact rollout path returned by the
+host for the selected thread. It checks the session, turn and existing command
+item identity before restoring missing projected output from raw command events.
+An explicit empty buffer remains empty; null alone never becomes empty. Exit and
+output conflicts are retained, not overwritten. Missing/inaccessible/oversized
+rollouts remain unavailable rather than guessed. The adapter currently supports
+the observed local JSONL format; remote or changed formats need separate support.
+
+Same-turn worker-visible tool responses are retained separately with the
+`tool_chunk` namespace and tool call ID. These IDs are not `command_item` IDs,
+and absence of an alias mapping is not proof of fabrication. Tool responses prove
+what was presented to the worker, not which command ran or whether it passed.
+Validators receive both views and provenance. A missing projected field is lack
+of corroboration, not contradiction of an observed native receipt. Real evidence
+conflicts and missing required execution proof must still be surfaced.
+
 Command evidence merges native live completion items, terminal notification items,
 and persisted terminal reads by item identity. A null persisted output must not
 erase a captured live output. Missed-terminal recovery uses the same merge.

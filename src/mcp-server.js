@@ -12,6 +12,7 @@ import { ControlRegistry } from "./registry.js";
 import { AgentRouter, normalizeStatus, requirementMatrix } from "./router.js";
 import { DashboardServer } from "./dashboard-server.js";
 import { workStatus, workSummary } from "./work-status.js";
+import { restoreNativeEvidence } from "./native-evidence.js";
 import { hostPinning } from "./host-pinning.js";
 import { workContext, WORK_CONVERSATION_POLICY } from "./work-conversation.js";
 import { dependencyEvidence, executionReports } from "./task-evidence.js";
@@ -2245,6 +2246,8 @@ export class McpControlServer {
             acceptanceCriteria,
             output: task.output,
             executionItems: task.executionItems ?? task.turn?.items ?? [],
+            nativeEvidence: task.nativeEvidence,
+            workerToolReceipts: task.workerToolReceipts,
             cwd: effectiveCwd,
             model: args.validationModel,
             effort: args.validationEffort,
@@ -3175,7 +3178,8 @@ export class McpControlServer {
         continue;
       }
       try {
-        const turn = readTurn(await control.inspectAgent(threadId, { includeTurns: true }), turnId);
+        const nativeRead = await control.inspectAgent(threadId, { includeTurns: true });
+        const turn = readTurn(nativeRead, turnId);
         if (!turn || !["completed", "failed", "interrupted"].includes(turn.status)) {
           const probes = Number(task.metadata?.reconciliation?.probes ?? 0) + 1;
           this.registry.updateTask(task.id, { heartbeatAt: new Date().toISOString(), metadata: { reconciliation: { probes, lastCheckedAt: new Date().toISOString(), state: turn ? "still_running" : "turn_missing" } } });
@@ -3212,7 +3216,10 @@ export class McpControlServer {
             this.registry.finishFailureClaim(task.id, task.workerId, task.claimToken, failure, { terminalStatus: "validation_failed" });
           }
         } else if (turn.status === "completed" && ["running", "approval_waiting"].includes(task.status)) {
-          const executionResult = { turn, output, turnId, executionItems: turn.items ?? [], completionMethod: "thread/read-recovery", recoveredFromRead: true, evidenceComplete: true };
+          const native = await restoreNativeEvidence({ path: nativeRead?.thread?.path, threadId, turnId, items: turn.items ?? [] });
+          const executionResult = { turn: {...turn, items:native.items}, output, turnId, executionItems: native.items,
+            nativeEvidence: native.nativeEvidence, workerToolReceipts: native.workerToolReceipts,
+            completionMethod: "thread/read-recovery", recoveredFromRead: true, evidenceComplete: true };
           const executionVerdict = evaluateTaskCompletion({
             result: executionResult,
             contract: task.metadata?.executionContract ?? task.metadata?.execution?.executionContract ?? {},
@@ -3231,6 +3238,8 @@ export class McpControlServer {
               acceptanceCriteria: task.metadata.acceptanceCriteria,
               output,
               executionItems: executionResult.executionItems,
+              nativeEvidence: executionResult.nativeEvidence,
+              workerToolReceipts: executionResult.workerToolReceipts,
               cwd: task.metadata?.effectiveCwd ?? task.cwd,
             });
             const current = this.registry.getTask(task.id);

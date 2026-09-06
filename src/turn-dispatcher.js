@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { assertOutputSchema } from "./output-schema.js";
 import { finalTurnOutput } from "./turn-output.js";
+import { restoreNativeEvidence } from "./native-evidence.js";
 import { TERMINAL_RUN_STATUSES, TERMINAL_TASK_STATUSES, TERMINAL_TURN_DISPATCH_STATUSES } from "./domain-states.js";
 
 const hash = (value) => createHash("sha256").update(String(value ?? "")).digest("hex");
@@ -278,7 +279,10 @@ export class TurnDispatcher {
       }
       return { dispatch, result: null };
     }
-    const result = { threadId: dispatch.threadId, turnId: turn.id, turn: { ...turn, status }, output: turnOutput(turn), executionItems: turn.items ?? [], completionMethod: "thread/read-recovery", recoveredFromRead: true, evidenceComplete: true };
+    const native = await restoreNativeEvidence({ path: response?.thread?.path, threadId: dispatch.threadId, turnId: turn.id, items: turn.items ?? [] });
+    const result = { threadId: dispatch.threadId, turnId: turn.id, turn: { ...turn, status, items: native.items }, output: turnOutput(turn), executionItems: native.items,
+      nativeEvidence: native.nativeEvidence, workerToolReceipts: native.workerToolReceipts,
+      completionMethod: "thread/read-recovery", recoveredFromRead: true, evidenceComplete: true };
     const state = terminalState(status);
     dispatch = this.registry.transitionTurnDispatch(id, state, {
       ...changes, reconciliationDecision: "terminal_recovered",

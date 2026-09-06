@@ -30,6 +30,7 @@ export function commandObservation(item) {
     ? (hasContent ? 'captured' : 'observed_empty')
     : strings.length ? 'partial' : 'unavailable';
   return { command: commandText(item), exitCode: commandExitCode(item), outputObservation,
+    ...(item.id ? { identity: { namespace: 'command_item', value: item.id } } : {}),
     outcome: isEmptyFileSearch(item) ? 'no_matches_by_exit_code'
       : commandSucceeded(item) ? 'succeeded' : commandExitCode(item) === null ? 'unknown' : 'not_succeeded' };
 }

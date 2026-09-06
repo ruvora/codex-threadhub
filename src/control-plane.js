@@ -1,5 +1,6 @@
 import { assertOutputSchema } from "./output-schema.js";
 import { finalTurnOutput } from "./turn-output.js";
+import { restoreNativeEvidence } from "./native-evidence.js";
 
 const TERMINAL_TURN_STATUSES = new Set(["completed", "failed", "interrupted"]);
 const DEFAULT_MANAGED_THREAD_CONFIG = {
@@ -252,17 +253,22 @@ export class CodexControlPlane {
           );
         } catch (error) {
           if (!/Timed out waiting for app-server notification/i.test(String(error?.message ?? ""))) throw error;
-          const recoveredTurn = terminalTurnFromRead(await this.inspectAgent(threadId, { includeTurns: true }), turnId);
+          const recoveredRead = await this.inspectAgent(threadId, { includeTurns: true });
+          const recoveredTurn = terminalTurnFromRead(recoveredRead, turnId);
           if (recoveredTurn) {
             const liveItems = observedItems.filter((entry) => entry.turnId === turnId
               || (!entry.turnId && activeStreams.size === 1)).map((entry) => entry.item);
-            const executionItems = mergeTurnItems(streamEvidence(), liveItems, recoveredTurn.items ?? []);
+            const native = await restoreNativeEvidence({ path: recoveredRead.thread?.path, threadId, turnId,
+              items: mergeTurnItems(streamEvidence(), liveItems, recoveredTurn.items ?? []) });
+            const executionItems = native.items;
             const recovered = {
               threadId,
               turnId,
               output: recoveredOutput(recoveredTurn) || output,
               turn: { ...recoveredTurn, items: executionItems },
               executionItems,
+              nativeEvidence: native.nativeEvidence,
+              workerToolReceipts: native.workerToolReceipts,
               completionMethod: "thread/read-recovery",
               recoveredFromRead: true,
               evidenceComplete: true,
@@ -285,16 +291,20 @@ export class CodexControlPlane {
       const liveItems = observedItems.filter((entry) => entry.turnId === turnId
         || (!entry.turnId && activeStreams.size === 1)).map((entry) => entry.item);
       let hydratedTurn = null;
+      let hydratedRead = null;
       let hydrationError = null;
       try {
-        hydratedTurn = terminalTurnFromRead(await this.inspectAgent(threadId, {
+        hydratedRead = await this.inspectAgent(threadId, {
           includeTurns: true,
           timeoutMs: Math.max(1, Math.min(options.evidenceHydrationTimeoutMs ?? 5_000, deadline - Date.now())),
-        }), turnId);
+        });
+        hydratedTurn = terminalTurnFromRead(hydratedRead, turnId);
       } catch (error) {
         hydrationError = error;
       }
-      const executionItems = mergeTurnItems(streamEvidence(), liveItems, turn.items ?? [], hydratedTurn?.items ?? []);
+      const native = await restoreNativeEvidence({ path: hydratedRead?.thread?.path, threadId, turnId,
+        items: mergeTurnItems(streamEvidence(), liveItems, turn.items ?? [], hydratedTurn?.items ?? []) });
+      const executionItems = native.items;
       const finalTurn = hydratedTurn ? {
         ...turn,
         ...hydratedTurn,
@@ -308,6 +318,8 @@ export class CodexControlPlane {
         output: recoveredOutput(hydratedTurn) || output,
         turn: finalTurn,
         executionItems,
+        nativeEvidence: native.nativeEvidence,
+        workerToolReceipts: native.workerToolReceipts,
         completionMethod: hydratedTurn ? `${completion.method}+thread/read` : completion.method,
         evidenceComplete: Boolean(hydratedTurn),
         ...(hydrationError ? { hydrationError: hydrationError.message } : {}),

@@ -1,5 +1,26 @@
 # Output observation and compact status correction
 
+## Subsequent raw-record finding and fix
+
+The next run (`run_17253436-7549-4cda-a832-50e3646649d6`) reproduced the rejection.
+Unlike the initial diagnosis based only on projected records, direct inspection
+of that worker's native rollout confirmed explicit empty stdout/stderr/output and
+the four chunk IDs quoted in its report. The projected command record had null
+output and a different identifier namespace. The worker report was delivered
+unchanged. These two rejection reasons were false positives, not worker fabrication.
+
+The correction now reconciles exact-session/turn/item native events before normal
+completion and recovery, restores only missing output with provenance, and carries
+worker-visible chunk receipts separately. Conflicting native fields cause validation
+uncertainty deterministically; models cannot approve that conflict. Missing native
+files do not justify inferring an empty log. No chunk-to-command mapping is guessed.
+
+An isolated actual validator replay of the original unchanged report with restored
+evidence returned `accept`, with no unmet criteria. The original production database
+was read-only, and its failed status was not changed. This establishes correction
+of this incident, not a fresh end-to-end orchestration pass. Initial policy-only
+changes below were insufficient and should not be mistaken for the final cause.
+
 ## Confirmed incident
 
 Run `run_192ab0cc-fb32-4e1d-8507-3162a48266be` finished failed, with three
