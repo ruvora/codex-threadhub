@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ResultValidator, parseValidationOutput } from "../src/result-validator.js";
+import { ResultValidator, parseValidationOutput, prepareValidationPrompt } from "../src/result-validator.js";
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { ControlRegistry } from "../src/registry.js";
 
 const valid = {
@@ -11,6 +15,24 @@ const valid = {
   evidence: ["tests passed"],
   unmetCriteria: [],
 };
+
+test('oversized validation preserves all evidence in a private artifact and bounds transport', t => {
+  const directory = mkdtempSync(join(tmpdir(),'validator-test-'));
+  t.after(()=>rmSync(directory,{recursive:true,force:true}));
+  const original = 'native-first\n' + '"\\\n한'.repeat(400_000) + '\nnonzero-last-item: exit 2';
+  const r = prepareValidationPrompt(original,{directory,task:'review',criteria:['all native exits reviewed']});
+  assert.ok(r.prompt.length < 200_000);
+  assert.equal(readFileSync(r.artifact.path,'utf8'),original);
+  assert.equal(r.artifact.sha256,createHash('sha256').update(original).digest('hex'));
+  assert.equal(statSync(r.artifact.path).mode & 0o077,0);
+  assert.match(r.prompt,/all native exits reviewed/);
+  assert.match(r.prompt,/reject with failureKind=validation/);
+  assert.match(r.prompt,/untrusted data/);
+  const hugeCriteria = prepareValidationPrompt(original,{directory,task:original,criteria:[original]});
+  assert.ok(hugeCriteria.prompt.length < 40_000);
+  assert.match(hugeCriteria.prompt,/Preview truncated/);
+  assert.deepEqual(prepareValidationPrompt('small'),{prompt:'small',artifact:null});
+});
 
 test('native evidence conflicts cannot be approved by a model', async () => {
   const registry=new ControlRegistry({path:':memory:'});

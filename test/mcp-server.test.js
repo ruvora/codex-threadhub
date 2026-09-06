@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { afterEach } from "node:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -10,13 +10,18 @@ import { ControlRegistry } from "../src/registry.js";
 import { ContextResolver } from "../src/context-resolver.js";
 import { compileExecutionContract, contractFingerprint } from "../src/execution-contracts.js";
 
+const testServers = [];
+afterEach(async () => { for (const server of testServers.splice(0)) await server.close(); });
+
 function fakeServer(control, options = {}) {
-  return new McpControlServer({
+  const server = new McpControlServer({
     controlFactory: () => ({ client: { close: async () => {} }, control }),
     registry: new ControlRegistry({ path: ":memory:" }),
     recoverInterruptedTasks: false,
     ...options,
   });
+  testServers.push(server);
+  return server;
 }
 
 async function waitUntil(predicate, timeoutMs = 1_000) {
@@ -1832,4 +1837,29 @@ test("close drains then interrupts an active Data Plane turn", async () => {
   await server.close();
   assert.equal(interrupted, 1);
   assert.equal(server.registry.getTask("task_shutdown").status, "interrupted");
+});
+
+test('explicit worker reuse or fork cannot bypass persistent control-role boundary', async () => {
+  for (const reuseExisting of [true,false]) {
+    const calls=[];
+    const server=fakeServer({connect:async()=>{},resumeAgent:async()=>{calls.push('resume');},forkAgent:async()=>{calls.push('fork');},runTask:async()=>{calls.push('run');}});
+    server.registry.upsertAgent({id:'planner-existing',cwd:'/repo',status:'idle'}, {role:'planner',metadata:{controlPlane:true}});
+    const response=await server.handleRequest({method:'tools/call',params:{name:'run_agent_task',arguments:{threadId:'planner-existing',reuseExisting,prompt:'implement',cwd:'/repo',taskKind:'implementation',mutatesWorkspace:true,sandbox:'workspace-write'}}});
+    assert.equal(response.isError,true);
+    assert.match(JSON.stringify(response),/EXECUTION_CONTRACT_THREAD_ROLE_MISMATCH/);
+    assert.deepEqual(calls,[]);
+    await server.close();
+  }
+});
+
+test('diagnostic review completes with durable warnings instead of replaying worker', async () => {
+  let runs=0, reviews=0;
+  const command={id:'gate-item',type:'commandExecution',command:'node scripts/gate.mjs',exitCode:3,status:'completed',aggregatedOutput:'NOT VERIFIED'};
+  const server=fakeServer({connect:async()=>{},spawnAgent:async()=>({id:'worker'}),runTask:async(id,prompt,options)=>{runs++;options.onStarted?.({turnId:'turn'});return {turnId:'turn',turn:{id:'turn',status:'completed',items:[command]},executionItems:[command],evidenceComplete:true,output:'Native gate unverified'};}}, {
+    resultValidator:{validate:async()=>{reviews++;return {decision:'accept',failureKind:'none',summary:'Allowed diagnostic limitation',evidence:['source and acceptance checked'],unmetCriteria:[],commandAssessments:[{itemId:'gate-item',exitCode:3,disposition:'optional_unavailable',evidence:['source contract and receipt checked']} ]};}}
+  });
+  const response=await server.handleRequest({method:'tools/call',params:{name:'run_agent_task',arguments:{prompt:'inspect optional native capability',cwd:'/repo',routingMode:'new',acceptanceCriteria:['report the optional unavailable gate']}}});
+  assert.notEqual(response.isError,true,JSON.stringify(response));
+  assert.equal(runs,1);assert.equal(reviews,1);
+  assert.equal(response.structuredContent.record.status,'completed_with_warnings');
 });

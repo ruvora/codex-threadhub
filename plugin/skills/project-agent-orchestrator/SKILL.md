@@ -99,3 +99,28 @@ components only on an explicit technical diagnostics or architecture request.
 The daemon is the sole writer of managed sessions. Active sessions are observation-only while leased. Do not introduce a second App Server writer. Worker results are aggregated durably and synthesized in the master, not appended automatically to the origin conversation.
 
 Inspect/status requests do not authorize new Runs. Do not use this plugin to modify itself. The compact status and detailed dashboard are projections of the same registry; neither can start work or change its outcome. Failure, cancellation, recovery and integration attention must never be represented as success. Retained worktree artifacts must not be discarded automatically.
+
+## Resume without duplicating work
+
+Inspect existing Runs, native execution receipts and retained files before dispatch.
+An explicit worker thread ID must be an eligible execution thread: never reuse or
+fork a Planner, Validator, Synthesizer or Orchestrator as an implementation worker.
+Their persistent developer instructions survive resume; a user prompt cannot
+replace them. Reuse artifacts independently of thread identity. If no compatible
+worker exists, report that limitation rather than promising reuse of a planning
+thread or creating duplicate work. Use stable request keys for authorized remaining
+work, and keep historical failed verdicts intact.
+
+Scope edit restrictions to exact projects or paths. When the target product is
+also a plugin, never forward an unqualified "do not modify the plugin" instruction.
+Name the orchestration plugin path that is excluded, and explicitly permit the
+authorized target product fixes. Preserve historical logs and published records
+without accidentally prohibiting changes to current implementation files.
+
+The host app's interrupted/notLoaded projection is not a native Turn completion
+receipt. A scheduler heartbeat establishes lease renewal, not model progress.
+When sources disagree, compare exact thread/Turn IDs and command or terminal
+receipts; do not interrupt, retry or claim healthy execution from either display
+alone. Report the discrepancy and known evidence. Nonzero diagnostic exits and
+optional unavailable checks need evidence-backed acceptance review; neither is
+a passed release gate.

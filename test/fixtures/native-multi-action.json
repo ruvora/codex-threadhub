@@ -1,0 +1,102 @@
+[
+  {
+    "project": "threadfold",
+    "projected": {
+      "id": "exec-1400695e-5663-465a-9409-092ba0811ffc",
+      "type": "commandExecution",
+      "command": "/bin/zsh -lc \"cat docs/verification/2026-09-06-continuation/acceptance-coverage-observation.log; rg -n 'coverage.push|conflicts.push|canonical|transaction\\\\(|cancelPlan|cancelOperation|recover\\\\(|readRecord|observedVisibleCount|HOST_ATOMICITY_UNVERIFIED|productionBlockers|malformed result|provenance, fixed|cancellation|visible list' src/model.js src/engine.js src/adapters.js src/store.js test/core.test.js\"",
+      "cwd": "/repo/threadfold",
+      "processId": "50254",
+      "exitCode": 0,
+      "commandActions": [
+        {
+          "type": "read",
+          "command": "cat docs/verification/2026-09-06-continuation/acceptance-coverage-observation.log",
+          "name": "acceptance-coverage-observation.log",
+          "path": "/repo/threadfold/docs/verification/2026-09-06-continuation/acceptance-coverage-observation.log"
+        },
+        {
+          "type": "search",
+          "command": "rg -n \"coverage.push|conflicts.push|canonical|transaction\\\\(|cancelPlan|cancelOperation|recover\\\\(|readRecord|observedVisibleCount|HOST_ATOMICITY_UNVERIFIED|productionBlockers|malformed result|provenance, fixed|cancellation|visible list\" src/model.js src/engine.js src/adapters.js src/store.js test/core.test.js",
+          "query": "coverage.push|conflicts.push|canonical|transaction\\(|cancelPlan|cancelOperation|recover\\(|readRecord|observedVisibleCount|HOST_ATOMICITY_UNVERIFIED|productionBlockers|malformed result|provenance, fixed|cancellation|visible list",
+          "path": "model.js"
+        }
+      ]
+    },
+    "native": {
+      "id": "exec-1400695e-5663-465a-9409-092ba0811ffc",
+      "type": "CommandExecution",
+      "command": [
+        "/bin/zsh",
+        "-lc",
+        "cat docs/verification/2026-09-06-continuation/acceptance-coverage-observation.log; rg -n 'coverage.push|conflicts.push|canonical|transaction\\(|cancelPlan|cancelOperation|recover\\(|readRecord|observedVisibleCount|HOST_ATOMICITY_UNVERIFIED|productionBlockers|malformed result|provenance, fixed|cancellation|visible list' src/model.js src/engine.js src/adapters.js src/store.js test/core.test.js"
+      ],
+      "cwd": "file:///repo/threadfold",
+      "process_id": "50254",
+      "exit_code": 0,
+      "parsed_cmd": [
+        {
+          "type": "read",
+          "cmd": "cat docs/verification/2026-09-06-continuation/acceptance-coverage-observation.log",
+          "name": "acceptance-coverage-observation.log",
+          "path": "docs/verification/2026-09-06-continuation/acceptance-coverage-observation.log"
+        },
+        {
+          "type": "search",
+          "cmd": "rg -n \"coverage.push|conflicts.push|canonical|transaction\\\\(|cancelPlan|cancelOperation|recover\\\\(|readRecord|observedVisibleCount|HOST_ATOMICITY_UNVERIFIED|productionBlockers|malformed result|provenance, fixed|cancellation|visible list\" src/model.js src/engine.js src/adapters.js src/store.js test/core.test.js",
+          "query": "coverage.push|conflicts.push|canonical|transaction\\(|cancelPlan|cancelOperation|recover\\(|readRecord|observedVisibleCount|HOST_ATOMICITY_UNVERIFIED|productionBlockers|malformed result|provenance, fixed|cancellation|visible list",
+          "path": "model.js"
+        }
+      ]
+    }
+  },
+  {
+    "project": "ruvora-workspace",
+    "projected": {
+      "id": "exec-992897c9-699c-473a-8c04-b7a504790de2",
+      "type": "commandExecution",
+      "command": "/bin/zsh -lc \"rg --files --hidden -g '\"'!.git'\"' -g '\"'!node_modules'\"'; cat scripts/verify-sources.mjs\"",
+      "cwd": "/repo/ruvora-workspace",
+      "processId": "33116",
+      "exitCode": 0,
+      "commandActions": [
+        {
+          "type": "listFiles",
+          "command": "rg --files --hidden -g '!.git' -g '!node_modules'",
+          "path": null
+        },
+        {
+          "type": "read",
+          "command": "cat scripts/verify-sources.mjs",
+          "name": "verify-sources.mjs",
+          "path": "/repo/ruvora-workspace/scripts/verify-sources.mjs"
+        }
+      ]
+    },
+    "native": {
+      "id": "exec-992897c9-699c-473a-8c04-b7a504790de2",
+      "type": "CommandExecution",
+      "command": [
+        "/bin/zsh",
+        "-lc",
+        "rg --files --hidden -g '!.git' -g '!node_modules'; cat scripts/verify-sources.mjs"
+      ],
+      "cwd": "file:///repo/ruvora-workspace",
+      "process_id": "33116",
+      "exit_code": 0,
+      "parsed_cmd": [
+        {
+          "type": "list_files",
+          "cmd": "rg --files --hidden -g '!.git' -g '!node_modules'",
+          "path": null
+        },
+        {
+          "type": "read",
+          "cmd": "cat scripts/verify-sources.mjs",
+          "name": "verify-sources.mjs",
+          "path": "scripts/verify-sources.mjs"
+        }
+      ]
+    }
+  }
+]

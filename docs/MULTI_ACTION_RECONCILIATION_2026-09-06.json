@@ -1,0 +1,42 @@
+[
+  {
+    "product": "threadfold",
+    "threadId": "01a074ff-123d-7c00-8685-f8e1ea3d3865",
+    "turnId": "01a07530-04ee-73c3-abc0-3d45d47d9a06",
+    "items": 31,
+    "before": {
+      "status": "conflicting",
+      "conflicts": [
+        {
+          "itemId": "exec-1400695e-5663-465a-9409-092ba0811ffc",
+          "kind": "identity_or_exit_conflict"
+        }
+      ]
+    },
+    "after": {
+      "status": "read",
+      "conflicts": []
+    },
+    "workerReceipts": 8
+  },
+  {
+    "product": "ruvora-workspace",
+    "threadId": "01a074ff-b521-7be1-be3f-b69962cce1eb",
+    "turnId": "01a07530-60bc-7b00-ab2b-753a7d27dc4f",
+    "items": 31,
+    "before": {
+      "status": "conflicting",
+      "conflicts": [
+        {
+          "itemId": "exec-992897c9-699c-473a-8c04-b7a504790de2",
+          "kind": "identity_or_exit_conflict"
+        }
+      ]
+    },
+    "after": {
+      "status": "read",
+      "conflicts": []
+    },
+    "workerReceipts": 12
+  }
+]

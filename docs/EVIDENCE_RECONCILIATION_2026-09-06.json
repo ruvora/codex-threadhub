@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-09-06T04:59:52.659Z",
+  "mode": "read_only_reconciliation",
+  "productCommandsReplayed": 0,
+  "storedVerdictsChanged": false,
+  "entries": [
+    {
+      "dispatchId": "dispatch_e2252a9a-d01d-4885-ab31-3c19bd1ffb33",
+      "threadId": "01a074c3-22b6-7a73-a74f-44a6d5127df9",
+      "turnId": "01a074fd-6768-7640-9588-32c3e8944b5a",
+      "nativeSourceSha256": "e3d111b1f5d619a789846d634b1cf1a198099982dba00cc4639e856858fc2375",
+      "before": {
+        "status": "conflicting",
+        "conflicts": [
+          {
+            "itemId": "exec-2281ed7e-188e-4577-a235-7cf6df801565",
+            "kind": "identity_or_exit_conflict"
+          }
+        ]
+      },
+      "after": {
+        "status": "read",
+        "conflicts": []
+      },
+      "executionItemCount": 29,
+      "workerReceiptCount": 14,
+      "executionFailure": null,
+      "acceptanceReviewRequired": [],
+      "releaseGateVerdict": "not_evaluated"
+    },
+    {
+      "dispatchId": "dispatch_c607a99f-383a-4cf2-a184-6957f4a80e58",
+      "threadId": "01a074ff-123d-7c00-8685-f8e1ea3d3865",
+      "turnId": "01a074ff-149e-7ab3-b235-16d161181fc0",
+      "nativeSourceSha256": "9c19f888fb48b9081e57a31aabc307be7bdb42ea4fb9a93d2b33d136aed151d8",
+      "before": {
+        "status": "read",
+        "conflicts": []
+      },
+      "after": {
+        "status": "read",
+        "conflicts": []
+      },
+      "executionItemCount": 57,
+      "workerReceiptCount": 19,
+      "executionFailure": null,
+      "acceptanceReviewRequired": [
+        {
+          "itemId": "exec-6f7a070e-ce9f-4e45-9ac8-b16fac081bd4",
+          "command": "/bin/zsh -lc \"rg -n 'inspect_cleanup_eligibility|prepare_cleanup_batch|apply_cleanup_batch|read_cleanup_operation|prepare_restore|apply_restore|approvalReceipt|threadfold|foldRecord' /Users/sin-yebin/Desktop/project/codex-control-plane/src\"",
+          "exitCode": 1,
+          "type": "command"
+        }
+      ],
+      "releaseGateVerdict": "not_evaluated"
+    }
+  ]
+}

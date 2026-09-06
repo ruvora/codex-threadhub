@@ -3,6 +3,34 @@ import test from "node:test";
 
 import { assessTaskResult, classifyFailure } from "../src/failure-classifier.js";
 
+test('search terms and filenames are not authority or runtime failure diagnostics', () => {
+  for (const term of ['approvalReceipt', 'permission', 'lease', 'timeout', 'socket', 'read-only']) {
+    const item = {id:'search',type:'commandExecution',command:`rg -n '${term}' src`,cwd:'/repo',exitCode:1,aggregatedOutput:''};
+    const result = {turn:{status:'completed'},executionItems:[item]};
+    assert.equal(assessTaskResult(result).type,'command');
+    const commandReviews = [];
+    assert.equal(assessTaskResult(result,{commandReviews}),null);
+    assert.equal(commandReviews.length,1);
+    assert.equal(commandReviews[0].command,item.command);
+    assert.equal(commandReviews[0].exitCode,1);
+    assert.equal(assessTaskResult({...result,executionItems:[{...item,exitCode:2,aggregatedOutput:'rg: src: Permission denied (os error 13)'}]},{commandReviews:[]}).type,'approval');
+  }
+});
+
+test('redirected tests remain blocking and only the same later test invocation supersedes them', () => {
+  const failed = {id:'before',type:'commandExecution',command:"/bin/zsh -lc 'node --test > docs/before.log 2>&1'",cwd:'/repo',exitCode:1};
+  const passed = {...failed,id:'after',command:"/bin/zsh -lc 'node --test > docs/after.log 2>&1'",exitCode:0};
+  const result = items => ({turn:{status:'completed'},executionItems:items});
+  const commandReviews = [];
+  assert.equal(assessTaskResult(result([failed]),{commandReviews}).type,'test');
+  assert.equal(commandReviews.length,0);
+  assert.equal(assessTaskResult(result([failed,passed])),null);
+  for (const change of [{cwd:'/different'}, {command:"node --test focused.test.js > docs/after.log 2>&1"},
+    {command:"node --test > docs/after.log 2>&1; true"}, {command:"node --test | cat"}]) {
+    assert.equal(assessTaskResult(result([failed,{...passed,...change}])).type,'test');
+  }
+});
+
 test("failure classification separates infrastructure, coordination, validation, and worker errors", () => {
   assert.deepEqual(classifyFailure(Object.assign(new Error("app-server exited"), { code: "ECONNRESET" })).type, "infrastructure");
   assert.equal(classifyFailure(new Error("thread already has an active writer")).type, "coordination");

@@ -51,7 +51,7 @@ function literalWords(text) {
       quote = null;
     } else if (!quote && (c === "'" || c === '"')) {
       quote = c; started = true;
-    } else if (c === '$' || c === '`' || (!quote && /[;|&<>\n\r()]/.test(c))) {
+    } else if (c === '$' || c === '`' || (!quote && /[;|&<>\n\r()*?~\[\]{}]/.test(c))) {
       return null;
     } else if (!quote && /\s/.test(c)) {
       if (started) words.push(word);
@@ -84,26 +84,39 @@ export function isEmptyFileSearch(item) {
   }
   if (!words || !['rg', '/usr/bin/rg', '/usr/local/bin/rg', '/opt/homebrew/bin/rg'].includes(words[0])) return false;
   const args = words.slice(1);
-  if (!args.includes('--files')) return false;
+  let enumeration = false;
   for (let i = 0; i < args.length; i++) {
-    if (['--files', '--hidden', '--no-ignore'].includes(args[i])) continue;
+    if (args[i] === '--files') { enumeration = true; continue; }
+    if (['--hidden', '--no-ignore'].includes(args[i])) continue;
     if (['-g', '--glob', '--iglob'].includes(args[i]) && args[i + 1]) { i++; continue; }
     if (/^--(?:glob|iglob)=.+/.test(args[i])) continue;
+    // Literal path operands are valid for --files, including multiple roots.
+    // Unknown flags and shell expansions are never interpreted as paths.
+    if (args[i] === '--') return enumeration && args.slice(i + 1).every(path => path.length > 0);
+    if (args[i] && !args[i].startsWith('-')) continue;
     return false;
   }
-  return true;
+  return enumeration;
 }
 
-export function isTestCommand(value, depth = 0) {
+function testCommandSource(value, depth = 0) {
   const text = typeof value === 'string' ? value : commandText(value);
   // App Server serializes direct exec calls through the user's login shell.
   // Unwrap only that single command transport, never arbitrary scripts.
   const shell = text.match(/^(?:\/[^\s'"$`]+\/)?(?:zsh|bash|sh)\s+-(?:lc|cl|c)\s+(['"])([\s\S]*)\1$/);
   if (shell) {
-    if (depth >= 2 || /[$`]/.test(shell[2])) return false;
+    if (depth >= 2 || /[$`]/.test(shell[2])) return null;
     const inner = shell[1] === '"' ? shell[2].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : shell[2];
-    return isTestCommand(inner, depth + 1);
+    return testCommandSource(inner, depth + 1);
   }
+  // A literal trailing output-file redirection changes the receipt destination,
+  // not the test invocation. Never strip pipelines, expansions or input redirects.
+  return text.replace(/\s+1?>{1,2}\s+[A-Za-z0-9_./-]+(?:\s+2>&1)?$/, '');
+}
+
+export function isTestCommand(value) {
+  const text = testCommandSource(value);
+  if (text === null) return false;
   // Conservatively handle one invocation, with quoted executable paths. Shell
   // pipelines/compound statements require separate native command receipts.
   if (/[;|&\n`]/.test(text) || text.includes('$(')) return false;
@@ -129,6 +142,6 @@ export function supersededTestFailure(item, later) {
   const cwd = item.cwd ?? item.workingDirectory ?? item.input?.cwd;
   if (!cwd || !isTestCommand(item)) return false;
   return later.some(next => commandSucceeded(next)
-    && commandText(next) === commandText(item)
+    && testCommandSource(next) === testCommandSource(item)
     && (next.cwd ?? next.workingDirectory ?? next.input?.cwd) === cwd);
 }

@@ -1,0 +1,14 @@
+{
+  "mode": "prompt_construction_only",
+  "modelCalls": 0,
+  "registryWrites": 0,
+  "originalCharacters": 1164023,
+  "transportCharacters": 3585,
+  "artifact": {
+    "path": "/var/folders/nw/sjbybhfs0tjc85hdsmsh_x6c0000gn/T/ruvora-validation-evidence-kb0taZ/full-validation-evidence.txt",
+    "sha256": "661e120ad5c07ddcb4fea349146e1dc7bbcf780ea322e77b24554a9ac42bf391",
+    "characters": 1164023
+  },
+  "taskId": "task_90d2f381-a702-4534-a685-308f16d27764",
+  "turnId": "01a074ff-b785-7ba3-8910-75d440789d2a"
+}

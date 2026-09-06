@@ -1800,6 +1800,15 @@ export class McpControlServer {
     try {
       if (!args.prompt?.trim()) throw new Error("prompt must not be empty");
       roleTemplate = args.role ? this.roleTemplates.resolve(args.role) : { name: "agent", sandbox: "read-only", approvalPolicy: "never", capabilities: [], tools: [] };
+      // Explicit IDs bypass automatic routing; enforce the same plane boundary
+      // before acquiring a writer or resuming a persistent instruction context.
+      for (const threadId of [args.threadId, args.preparedAgentId].filter(Boolean)) {
+        if (isControlPlaneAgent(this.registry.getAgent(threadId))) {
+          throw Object.assign(new Error("Execution contract cannot use a planning, validation or orchestration thread as a worker"), {
+            code: "EXECUTION_CONTRACT_THREAD_ROLE_MISMATCH", nextAction: "repair_routing", retryable: false,
+          });
+        }
+      }
       const persistedContract = this.registry.getTask(taskId)?.metadata?.executionContract;
       executionContract = assertExecutionContract(args.executionContract?.fingerprint
         ? args.executionContract
@@ -2207,7 +2216,7 @@ export class McpControlServer {
         }
       }
       const strictEvidence = task.evidenceComplete !== undefined;
-      const executionVerdict = evaluateTaskCompletion({ result: task, contract: executionContract, phase: "execution", strictEvidence });
+      const executionVerdict = evaluateTaskCompletion({ result: task, contract: executionContract, acceptanceCriteria: this.registry.getTask(taskId)?.metadata?.acceptanceCriteria ?? [], phase: "execution", strictEvidence });
       if (!['accept', 'accept_with_warnings'].includes(executionVerdict.decision)) {
         this.registry.updateTask(taskId, { metadata: { completionVerdict: executionVerdict, workspaceEvidence } });
         const outcomeFailure = completionFailure(executionVerdict);
@@ -2278,7 +2287,7 @@ export class McpControlServer {
           });
           this.registry.updateTask(taskId, { metadata: { completionVerdict, workspaceEvidence, postconditionEvidence } });
           persistedTask = ["accept", "accept_with_warnings"].includes(completionVerdict.decision)
-            ? this.registry.finishValidationClaim(taskId, this.instanceId, claimToken, validation)
+            ? this.registry.finishValidationClaim(taskId, this.instanceId, claimToken, { ...validation, decision: completionVerdict.decision })
             : this.registry.finishFailureClaim(taskId, this.instanceId, claimToken, completionFailure(completionVerdict), {
               terminalStatus: completionVerdict.decision === "attention" ? "recovery_attention" : "failed",
             });
@@ -3155,7 +3164,7 @@ export class McpControlServer {
       });
     }
     return acceptanceCriteria.length
-      ? this.registry.finishValidationClaim(task.id, task.workerId, task.claimToken, validation)
+      ? this.registry.finishValidationClaim(task.id, task.workerId, task.claimToken, { ...validation, decision: completionVerdict.decision })
       : this.registry.completeClaim(task.id, task.workerId, task.claimToken, { output: result?.output ?? task.output, turnId: result?.turnId ?? task.turnId });
   }
 
@@ -3222,6 +3231,7 @@ export class McpControlServer {
           const executionVerdict = evaluateTaskCompletion({
             result: executionResult,
             contract: task.metadata?.executionContract ?? task.metadata?.execution?.executionContract ?? {},
+            acceptanceCriteria: task.metadata?.acceptanceCriteria ?? [],
             phase: "execution",
             strictEvidence: true,
           });

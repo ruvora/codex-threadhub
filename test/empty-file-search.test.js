@@ -26,7 +26,7 @@ test('only a literal diagnostic-free file enumeration can be no-match', () => {
   for (const cmd of ['rg missing README.md', 'grep missing README.md', 'node --test',
     'rg --files; false', 'rg --files | false', 'rg --files && false',
     'sh -c "rg --files; false"', 'sh -c "rg --files $(false)"',
-    'rg --files --quiet', 'rg --files --no-messages', 'rg --files missing-path',
+    'rg -- --files', 'rg -g --files', 'rg --files /tmp/*', 'rg --files ~/project', 'rg --files --quiet', 'rg --files --no-messages',
     'python -c "rg --files"', 'rg --files > /tmp/output', 'rg --files -g']) {
     assert.equal(isEmptyFileSearch(receipt(cmd)), false, cmd);
   }
@@ -52,4 +52,11 @@ test('a later failed test is never hidden by a benign search', () => {
   assert.equal(assessTaskResult(result).type, 'test');
   assert.equal(evaluateTaskCompletion({result:{evidenceComplete:true,turn:{status:'completed',items:[receipt(command)]}},
     contract:{taskKind:'test'},phase:'execution'}).decision, 'attention');
+});
+
+ test('ThreadFold multi-root literal search is no-match but path errors remain failures', () => {
+  const cmd = "/bin/zsh -lc 'rg --files -g AGENTS.md /Users/example/project /Users/example/Desktop /tmp/plugin-creator'";
+  assert.equal(isEmptyFileSearch(receipt(cmd)), true);
+  assert.equal(isEmptyFileSearch(receipt(cmd, {exitCode:2, stderr:'No such file or directory'})), false);
+  assert.equal(isEmptyFileSearch(receipt('rg --files -- -literal-path')), true);
 });

@@ -5,6 +5,40 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { commandExitCode } from './command-evidence.js';
 
+// Decode only literal shell words in the host's display string. Never execute
+// it or split/reconstruct the script inside argv[2]: operators and quoting there
+// are part of the command identity, including for multi-action commands.
+function displayArgv(text) {
+  if (typeof text !== 'string') return null;
+  const words = [];
+  let word = '', quote = null, started = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote === "'") {
+      if (c === "'") quote = null; else word += c;
+    } else if (c === '\\') {
+      const next = text[++i];
+      if (next === undefined || next === '\n') return null;
+      if (quote === '"' && !['$', '`', '"', '\\'].includes(next)) word += '\\';
+      word += next; started = true;
+    } else if (quote && c === quote) {
+      quote = null;
+    } else if (!quote && (c === "'" || c === '"')) {
+      quote = c; started = true;
+    } else if (c === '$' || c === '`' || (!quote && /[;|&<>\n\r()*?~\[\]{}#]/.test(c))) {
+      return null;
+    } else if (!quote && /\s/.test(c)) {
+      if (started) words.push(word);
+      word = ''; started = false;
+    } else {
+      word += c; started = true;
+    }
+  }
+  if (quote) return null;
+  if (started) words.push(word);
+  return words;
+}
+
 // Only the exact host-returned rollout, session, turn and already observed item.
 // Never discover unrelated sessions or use worker-provided paths as authority.
 export async function restoreNativeEvidence({ path, threadId, turnId, items }) {
@@ -64,13 +98,19 @@ export function reconcileNativeEvidence(text, { threadId, turnId, items }) {
     const action = item.commandActions?.length === 1 ? item.commandActions[0] : null;
     const structuredMatch = Array.isArray(raw.command) && raw.command.length === 3
       && /\/(?:ba|z)?sh$/.test(raw.command[0]) && ['-c','-lc'].includes(raw.command[1])
-      && action?.type === 'unknown' && action.command === rawCommand
+      && typeof action?.command === 'string' && action.command === rawCommand
       && typeof item.cwd === 'string' && pathValue(item.cwd) === pathValue(raw.cwd)
       && (item.processId == null || raw.process_id == null || String(item.processId) === String(raw.process_id));
-    const commandMatches = structuredMatch || typeof rawCommand === 'string'
+    const decoded = displayArgv(item.command);
+    const displayMatches = Array.isArray(raw.command) && decoded?.length === raw.command.length
+      && decoded.every((word, index) => word === raw.command[index]);
+    const locationMatches = (item.cwd == null && raw.cwd == null
+      || typeof item.cwd === 'string' && pathValue(item.cwd) === pathValue(raw.cwd))
+      && (item.processId == null || raw.process_id == null || String(item.processId) === String(raw.process_id));
+    const commandMatches = displayMatches || structuredMatch || typeof rawCommand === 'string'
       && (item.command === rawCommand || (Array.isArray(raw.command) && typeof item.command === 'string'
         && [raw.command.join(' '), `${raw.command[0]} ${raw.command[1]} '${rawCommand}'`, `${raw.command[0]} ${raw.command[1]} "${rawCommand}"`].includes(item.command)));
-    if (!commandMatches || commandExitCode(item) !== raw.exit_code) {
+    if (!locationMatches || !commandMatches || commandExitCode(item) !== raw.exit_code) {
       conflicts.push({ itemId: item.id, kind: 'identity_or_exit_conflict' }); return item;
     }
     const out = { ...item };

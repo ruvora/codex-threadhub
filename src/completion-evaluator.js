@@ -88,7 +88,8 @@ export function evaluateTaskCompletion(options = {}) {
   const missingEvidence = [];
   const conflictingEvidence = [];
 
-  const executionFailure = assessTaskResult(result);
+  const commandReviews = [];
+  const executionFailure = assessTaskResult(result, acceptanceCriteria.length && [undefined, "none"].includes(contract.integrationStrategy) ? { commandReviews } : {});
   if (executionFailure) {
     return finalize(reject({ category: executionFailure.category, cause: executionFailure, retryable: executionFailure.retryable, nextAction: executionFailure.nextAction }), contract, result, validation, artifact, postcondition);
   }
@@ -131,6 +132,21 @@ export function evaluateTaskCompletion(options = {}) {
       satisfiedEvidence, missingEvidence, conflictingEvidence,
       retryable: false, nextAction: "continue_completion",
     }, contract, result, validation, artifact, postcondition);
+  }
+
+  if (commandReviews.length) {
+    const unresolved = commandReviews.filter(command => {
+      const matches = (validation?.commandAssessments ?? []).filter(review => review.itemId === command.itemId);
+      return matches.length !== 1 || matches[0].exitCode !== command.exitCode
+        || !["expected_nonzero", "optional_unavailable"].includes(matches[0].disposition)
+        || !matches[0].evidence?.length;
+    });
+    if (unresolved.length) return finalize(reject({
+      decision: "attention", category: "validation", cause: "Nonzero command outcomes require evidence-backed acceptance review",
+      missingEvidence: unresolved.map(command => `command-review:${command.itemId}`),
+      retryable: false, nextAction: "inspect_execution_evidence",
+    }), contract, result, validation, artifact, postcondition);
+    satisfiedEvidence.push("reviewed-nonzero-commands");
   }
 
   const output = typeof result.output === "string" ? result.output.trim() : result.output;
@@ -190,7 +206,7 @@ export function evaluateTaskCompletion(options = {}) {
   }
 
   return finalize({
-    decision: validation?.decision === "accept_with_warnings" ? "accept_with_warnings" : "accept",
+    decision: commandReviews.length || validation?.decision === "accept_with_warnings" ? "accept_with_warnings" : "accept",
     category: "none",
     cause: null,
     satisfiedEvidence,
