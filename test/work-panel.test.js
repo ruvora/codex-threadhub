@@ -6,6 +6,29 @@ import { DashboardServer } from "../src/dashboard-server.js";
 import { ControlRegistry } from "../src/registry.js";
 import { McpControlServer } from "../src/mcp-server.js";
 
+test('preparation renders before a thread exists and the same view gains a real link', () => {
+  const html=readFileSync(new URL('../ui/work-progress.html',import.meta.url),'utf8');
+  const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const elements=new Map();
+  const element=()=>({setAttribute(k,v){this[k]=v;},removeAttribute(k){delete this[k];},append(){}});
+  const context={document:{getElementById(id){if(!elements.has(id))elements.set(id,element());return elements.get(id);},createElement:element},Date};
+  runInNewContext(script.slice(0,script.indexOf('async function refresh'))+'\nglobalThis.renderTest=render;',context);
+  const work={name:'검증',status:'planning',progress:{total:0,succeeded:0}};
+  context.renderTest({work,tasks:[]});
+  assert.match(elements.get('preparation').textContent,/작업을 준비/);
+  assert.equal(elements.get('summary').hidden,true);
+  assert.equal(elements.get('primary').hidden,true);
+  assert.equal(elements.get('task-structure').hidden,true);
+  work.master={threadId:'01a07084-279e-7fa0-96a7-9937bfb80cc4'};
+  work.status='running';
+  context.renderTest({work,tasks:[]});
+  assert.equal(elements.get('preparation').textContent,'');
+  assert.equal(elements.get('primary').href,'codex://threads/01a07084-279e-7fa0-96a7-9937bfb80cc4');
+  work.master=null;work.status='failed';
+  context.renderTest({work,tasks:[]});
+  assert.match(elements.get('preparation').textContent,/이동할 작업 대화가 없습니다/);
+});
+
 test("panel refresh preserves stale evidence, pauses hidden views, and prevents overlapping requests", async () => {
   const html = readFileSync(new URL("../ui/work-progress.html", import.meta.url), "utf8");
   const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -109,10 +132,23 @@ test("panel handoff targets the representative task without invoking execution o
     const result=await server.handleRequest({method:"tools/call",params:{name:"show_work_progress",arguments:{runId:"r"}}});
     assert.notEqual(result.isError,true);
     assert.equal(result.structuredContent.opened,false);
-    assert.equal(result.structuredContent.hostAction.arguments.threadId,"representative");
+    assert.equal(result.structuredContent.hostAction.arguments.threadId,undefined);
     assert.equal(result.structuredContent.hostAction.arguments.placement,"right");
     assert.equal(result.structuredContent.hostAction.tool,"open_in_codex");
     assert.equal(registry.listTasks({runId:"r"}).length,0);
+    registry.createRun({id:'preparing',status:'accepted'});
+    const early=await server.handleRequest({method:'tools/call',params:{name:'show_work_progress',arguments:{runId:'preparing'}}});
+    assert.notEqual(early.isError,true);
+    assert.equal(early.structuredContent.work.master,null);
+    assert.equal(early.structuredContent.hostAction.arguments.threadId,undefined);
+    const url=new URL('/api/progress',early.structuredContent.panelUrl);
+    url.search=new URL(early.structuredContent.panelUrl).search;
+    const before=await fetch(url).then(r=>r.json());
+    assert.equal(before.work.master,null);
+    registry.upsertAgent({id:'01a07084-279e-7fa0-96a7-9937bfb80cc4',status:'idle'});
+    registry.createTask({id:'late',prompt:'work',status:'running',agentId:'01a07084-279e-7fa0-96a7-9937bfb80cc4',metadata:{runId:'preparing'}});
+    const after=await fetch(url).then(r=>r.json());
+    assert.equal(after.work.master.threadId,'01a07084-279e-7fa0-96a7-9937bfb80cc4');
     const invalid=await server.handleRequest({method:"tools/call",params:{name:"show_work_progress",arguments:{runId:"missing"}}});
     assert.equal(invalid.isError,true);
   } finally { await server.close(); }

@@ -7,11 +7,11 @@ function status(tasks, metadata = {}, agentId = id) {
   return workStatus({ listTasks: () => tasks, getAgent: () => ({ id: agentId }) },
     { id: 'run', name: 'Work', status: 'running', metadata });
 }
-test('single work offers its real link without a default dashboard', () => {
+test('single work offers its real link and compact panel handoff', () => {
   const r = status([{ agentId: id, status: 'running' }]);
   assert.equal(r.presentation.kind, 'single');
   assert.equal(r.presentation.workUrl, `codex://threads/${id}`);
-  assert.equal(r.presentation.initialPanel, null);
+  assert.equal(r.presentation.initialPanel.tool, 'show_work_progress');
 });
 test('orchestrated work offers a run-scoped compact panel handoff', () => {
   const r = status([{ status: 'running' }, { status: 'blocked' }], { orchestratorAgentId: id });
@@ -21,8 +21,9 @@ test('orchestrated work offers a run-scoped compact panel handoff', () => {
   assert.equal(r.presentation.opened, undefined);
 });
 test('preparation and missing or invalid representative never fabricate a link', () => {
-  assert.deepEqual(status([]).presentation, {kind:'preparing',workUrl:null,initialPanel:null});
-  assert.equal(status([{}, {}]).presentation.initialPanel, null);
+  assert.equal(status([]).presentation.workUrl,null);
+  assert.equal(status([]).presentation.initialPanel.tool,'show_work_progress');
+  assert.equal(status([{}, {}]).presentation.initialPanel.tool,'show_work_progress');
   assert.equal(status([{}, {}], {orchestratorAgentId:id}, 'invalid').presentation.workUrl, null);
 });
 

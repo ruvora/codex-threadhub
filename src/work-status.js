@@ -69,8 +69,7 @@ export function workStatus(registry, run) {
     presentation: {
       kind: orchestrated ? "orchestrated" : tasks.length === 1 ? "single" : "preparing",
       workUrl,
-      initialPanel: orchestrated && workUrl
-        ? { tool: "show_work_progress", arguments: { runId: run.id } } : null,
+      initialPanel: { tool: "show_work_progress", arguments: { runId: run.id } },
     },
     pinning: hostPinning(master?.ephemeral ? null : master?.id, run.metadata?.controlRequest?.pin === true),
     needsAttention: Boolean(attention || run.metadata?.failure || progress.unknown),

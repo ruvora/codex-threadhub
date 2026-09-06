@@ -935,7 +935,7 @@ const TOOLS = [
   {
     name: "show_work_progress",
     title: "Show compact work progress",
-    description: "Prepare a read-only, run-scoped live progress panel. Use the returned open_in_codex action to attach it beside the representative task when the user requests a work panel. This does not open UI by itself and never starts a worker or refresh turn. The panel offers task deep links without message or execution side effects; opening depends on the host, not URL creation.",
+    description: "Prepare a read-only, run-scoped live progress panel. Use the returned open_in_codex action to attach it beside the current requesting conversation immediately after acceptance, even before a representative exists. This does not open UI by itself and never starts a worker or refresh turn. The panel offers task deep links without message or execution side effects; opening depends on the host, not URL creation.",
     inputSchema: { type: "object", properties: { runId: { type: "string", minLength: 1 } }, required: ["runId"], additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
@@ -1328,7 +1328,7 @@ export class McpControlServer {
           resources: { subscribe: false, listChanged: false },
         },
         serverInfo: { name: "codex-control-plane", version: "0.14.0" },
-        instructions: "Use this daemon as the single Codex thread writer. Dispatch automatically plans and starts work without READY placeholders or another Start. Default to get_work_status: work name, status, progress and work link only for single work. Always include the actual representative work link, including on status replies. For newly orchestrated work, use presentation.initialPanel to call show_work_progress and pass its hostAction to open_in_codex once, unless the user opts out. This compact progress dashboard is distinct from detailed diagnostics; report queued placement honestly and do not switch the current conversation or reopen user-closed panels. If preparation outlasts the bounded wait, report pending presentation and finish it at the next user interaction. Keep internal hierarchy invisible: use ordinary work names and localized Open work / View result labels, never master/slave, nodes, Orchestrator, Run IDs or role names in normal replies. Show detailed dashboards only on explicit request. Use codex://threads/<UUID> links only for actual existing local task IDs; never treat a rendered link as confirmed navigation. When the user asks to open a result, call navigate_to_codex_page with the returned threadId; confirm only navigated=true. Use host navigation/pinning tools for returned real thread IDs when requested, never send a turn for navigation. The daemon never appends terminal results to the requesting thread.",
+        instructions: "Use this daemon as the single Codex thread writer. Dispatch automatically plans and starts work without READY placeholders or another Start. Default to get_work_status: work name, status, progress and work link. Always include the actual representative work link, including on status replies. Immediately after each new dispatch is accepted, before waiting for a representative, use presentation.initialPanel to call show_work_progress and pass its hostAction to open_in_codex once, unless the user opts out. Keep the host action unchanged: it omits threadId and opens beside the current requesting conversation even during planning. This compact progress dashboard is distinct from detailed diagnostics; report queued placement honestly and do not switch the current conversation or reopen user-closed panels. If preparation outlasts the bounded wait, report pending link and pin and finish it at the next user interaction. Keep internal hierarchy invisible: use ordinary work names and localized Open work / View result labels, never master/slave, nodes, Orchestrator, Run IDs or role names in normal replies. Show detailed dashboards only on explicit request. Use codex://threads/<UUID> links only for actual existing local task IDs; never treat a rendered link as confirmed navigation. When the user asks to open a result, call navigate_to_codex_page with the returned threadId; confirm only navigated=true. Use host navigation/pinning tools for returned real thread IDs when requested, never send a turn for navigation. The daemon never appends terminal results to the requesting thread.",
       };
     }
     if (message.method === "ping") return {};
@@ -1642,11 +1642,10 @@ export class McpControlServer {
         const run = this.registry.getRun(args.runId);
         if (!run) throw new Error("Work not found");
         const work = workStatus(this.registry, run);
-        if (!work.master?.threadId) throw new Error("대표 작업을 준비 중입니다. 생성된 뒤 패널을 열어주세요.");
         const dashboard = await this.#ensureDashboardServer();
         const panelUrl = dashboard.progressUrl(run.id);
         result = { work, panelUrl, opened: false, hostAction: {
-          tool: "open_in_codex", arguments: { threadId: work.master.threadId, placement: "right", target: { type: "browser", url: panelUrl } },
+          tool: "open_in_codex", arguments: { placement: "right", target: { type: "browser", url: panelUrl } },
         } };
       } else if (name === "show_agent_dashboard") {
         const hostRequesterThreadId = context.hostOrigin?.threadId ?? null;
