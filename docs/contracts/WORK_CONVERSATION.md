@@ -38,6 +38,14 @@ If the representative is not ready within the bounded wait, presentation remains
 pending until the next user interaction; a skill alone cannot emit UI after its
 responding turn has ended.
 
+Dispatch acknowledgements and status tool text render a compact summary directly:
+work name, state, separate success/active/rejected/failed counts, actual work link
+and a short attention reason. Machine fields remain in structuredContent. Accepted
+work without a representative explicitly says the link is not available yet;
+it must not claim creation, pinning, or live automatic updates. Failed work with
+validation rejection is labeled distinctly from execution failure, without changing
+the durable failed state or counting rejection as success.
+
 Sidebar pinning belongs to the native app, not App Server `thread/metadata/update`.
 New `dispatch_control_request` work persists `pin` intent (default true, false opts
 out). `get_work_status.works[].pinning` supplies a representative-only native
@@ -71,8 +79,14 @@ marked as not guaranteed complete. They never synthesize an exit code or prove
 that no output was missed. Validation must distinguish unavailable logs from
 empty logs and must not infer test counts from exit code zero or historical prose.
 
-A diagnostic-free `rg --files` enumeration with exit code 1 is an observed
-empty file list, not a failed test or positive test-success receipt. This narrow
+A diagnostic-free `rg --files` enumeration with exit code 1 is classified as
+no matches by command semantics, not a failed test or positive test-success receipt.
+It does not prove an empty output buffer was observed. Native null/omitted logs
+remain unavailable; only explicit complete empty buffers are observed empty.
+Workers and validators share this interpretation policy. Revision handoffs and
+validation input carry derived command observations separately from unchanged
+native receipts. Unsupported observations or test counts still require correction;
+this policy does not waive acceptance criteria. This narrow
 classification supports literal single commands and their shell transport only;
 content searches, compound commands, unknown options, explicit path operands,
 diagnostic output, and exit code 2 remain failures. Original command receipts

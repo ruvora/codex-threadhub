@@ -42,6 +42,8 @@ test("panel refresh preserves stale evidence, pauses hidden views, and prevents 
   const link=article.children[4];
   article.children[5].open=true;
   snapshot.tasks[0].status='recovery_attention';snapshot.tasks[0].nextAction='inspect_execution_evidence';snapshot.tasks[0].issue='INTERNAL_ERROR';
+  snapshot.work.status='failed';snapshot.work.progress.rejected=1;snapshot.work.needsAttention=true;
+  snapshot.work.attention={cause:'검색 출력 관측을 확인해야 합니다.'};
   resolveFetch({ok:true,json:async()=>snapshot});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(elements.get('tasks').children[0],article);
@@ -49,6 +51,8 @@ test("panel refresh preserves stale evidence, pauses hidden views, and prevents 
   assert.equal(article.children[5].open,true);
   assert.match(article.children[3].textContent,/종료 결과/);
   assert.equal(article.children[5].children[1].textContent,'INTERNAL_ERROR');
+  assert.equal(elements.get('overall').textContent,'실패 · 결과 검증 거절');
+  assert.equal(elements.get('attention').textContent,'검색 출력 관측을 확인해야 합니다.');
   void refresh();
   resolveFetch({ ok: false, status: 403 });
   await new Promise(resolve => setImmediate(resolve));

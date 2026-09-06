@@ -25,6 +25,32 @@ export function workProgress(tasks) {
   return progress;
 }
 
+export function workSummary(work) {
+  const p = work.progress;
+  let label = ({ accepted: '접수됨 · 작업 준비 중', planning: '작업 준비 중',
+    completed: '완료', failed: '실패', cancelled: '취소됨' })[work.status] ?? '진행 중';
+  if (work.status === 'failed' && p.rejected && !p.failed) label = '실패 · 결과 검증 거절';
+  else if (work.status === 'failed' && p.failed) label = '실패 · 작업 실행 실패';
+  else if (work.needsAttention && !['completed', 'failed', 'cancelled'].includes(work.status)) label = '진행 중 · 확인 필요';
+  const counts = p.total ? [
+    `성공 ${p.succeeded}/${p.total}`,
+    ...(p.active ? [`진행 ${p.active}`] : []),
+    ...(p.waiting ? [`대기 ${p.waiting}`] : []),
+    ...(p.rejected ? [`검증 거절 ${p.rejected}`] : []),
+    ...(p.failed ? [`실행 실패 ${p.failed}`] : []),
+    ...(p.cancelled ? [`취소 ${p.cancelled}`] : []),
+    ...(p.skipped ? [`건너뜀 ${p.skipped}`] : []),
+    ...(p.warnings ? [`경고 ${p.warnings}`] : []),
+  ].join(' · ') : null;
+  const url = work.presentation?.workUrl;
+  const safeName = String(work.name ?? '작업').replace(/[\r\n]/g, ' ').replace(/[\[\]<>]/g, '');
+  return [ `${safeName} — ${label}`, counts,
+    url ? `[${work.master?.label ?? '작업 열기'}](${url})`
+      : ['failed', 'cancelled', 'completed'].includes(work.status) ? '이동할 작업 대화가 없습니다.' : '작업 대화를 준비 중입니다. 아직 이동 링크가 없습니다.',
+    work.attention?.cause ? `확인 사항: ${work.attention.cause}` : null,
+  ].filter(Boolean).join('\n\n');
+}
+
 export function workStatus(registry, run) {
   const tasks = registry.listTasks({ runId: run.id, limit: 1000000 });
   const masterId = run.metadata?.orchestratorSessionIdentity?.agentId

@@ -71,6 +71,14 @@ Show the agent dashboard for this project.
 
 The default experience is **work name, status, progress, and Open work / View result**, provided by `get_work_status`. Keep making ordinary requests: there is no execution mode or hierarchy to learn. During preparation, the link is absent rather than a placeholder. Pinning is optional and host-dependent; opening ongoing work lets you observe its record.
 
+Request acknowledgements and status responses include a compact readable summary,
+not a raw diagnostic object. It distinguishes work still preparing, execution
+failure, and result-validation rejection. Success counts exclude rejected work;
+once the representative conversation exists, its link is included in the response.
+This is a snapshot, not an automatically updating chat card. A missing link during
+preparation does not mean the request failed; it means the conversation is not yet
+available. Detailed machine data remains available separately.
+
 Ask **“Keep a small progress panel beside this work”** to see per-task status, issues, and freshness without opening the detailed dashboard. `show_work_progress` prepares a read-only panel; the native host attaches it beside the representative task. It refreshes while visible without model turns and warns when disconnected. This is a side panel, not an insertion into the chat body. Open work links target existing local task conversations without copying identifiers or sending messages. Chat-link navigation has been user-verified; each panel host still requires click verification. Reopen the panel after a daemon restart or link expiry.
 
 The compact panel keeps the representative work/result link at the top, with short task descriptions and named dependency arrows below. Action guidance is visible; technical diagnostics stay collapsed. Refreshes preserve existing links and expanded sections. A final result may describe failure or cancellation—it is not a success badge.

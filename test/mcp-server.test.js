@@ -1320,6 +1320,8 @@ test("direct control request crosses planning without calling AI planner and exe
     const response=await server.handleRequest({method:'tools/call',params:{name:'dispatch_control_request',arguments:request}});
     const runId=response.structuredContent.runId;
     assert.equal(response.structuredContent.status,'accepted');
+    assert.match(response.content[0].text,/접수됨 · 작업 준비 중/);
+    assert.match(response.content[0].text,/아직 이동 링크가 없습니다/);
     const run=await waitUntil(()=>{const r=server.registry.getRun(runId);return ['completed','failed'].includes(r.status)&&r;});
     assert.equal(run.status,'completed',run.metadata.failure?.cause);
     assert.equal(run.metadata.planningMethod,'deterministic_direct');
@@ -1331,8 +1333,12 @@ test("direct control request crosses planning without calling AI planner and exe
     assert.equal(executions,1);
     const status=await server.handleRequest({method:'tools/call',params:{name:'get_work_status',arguments:{runId}}});
     assert.equal(status.structuredContent.works[0].pinning.hostAction.arguments.threadId,id);
+    assert.ok(status.content[0].text.includes(`codex://threads/${id}`));
+    assert.match(status.content[0].text,/성공 1\/1/);
+    assert.doesNotMatch(status.content[0].text,/runId|hostAction|master/);
     const duplicate=await server.handleRequest({method:'tools/call',params:{name:'dispatch_control_request',arguments:request}});
     assert.equal(duplicate.structuredContent.runId,runId);assert.equal(executions,1);
+    assert.ok(duplicate.content[0].text.includes(`codex://threads/${id}`));
   } finally {await server.close();}
 });
 

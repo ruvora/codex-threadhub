@@ -11,7 +11,7 @@ import { OwnedThreadControl } from "./owned-thread-control.js";
 import { ControlRegistry } from "./registry.js";
 import { AgentRouter, normalizeStatus, requirementMatrix } from "./router.js";
 import { DashboardServer } from "./dashboard-server.js";
-import { workStatus } from "./work-status.js";
+import { workStatus, workSummary } from "./work-status.js";
 import { hostPinning } from "./host-pinning.js";
 import { workContext, WORK_CONVERSATION_POLICY } from "./work-conversation.js";
 import { dependencyEvidence, executionReports } from "./task-evidence.js";
@@ -2509,6 +2509,7 @@ export class McpControlServer {
     this.registry.recordEvent("run", runId, "run.control_request_accepted", { objective: args.objective, startPolicy: "automatic" });
     this.#scheduleControlDispatch(runId, controlRequest);
     return {
+      ...workStatus(this.registry, this.registry.getRun(runId)),
       runId,
       name: controlRequest.name,
       status: "accepted",
@@ -3596,7 +3597,11 @@ export class McpControlServer {
       runId: value.runId ?? value.run?.id ?? value.graph?.run?.id ?? null,
       status: value.status ?? value.run?.status ?? value.graph?.run?.status ?? null,
     } : value;
-    const content = [{ type: "text", text: JSON.stringify(contentValue, null, 2) }];
+    const works = !isError && (Array.isArray(value?.works) ? value.works
+      : value?.accepted && value?.statusTool === "get_work_status" && value.progress ? [value] : null);
+    const content = [{ type: "text", text: works
+      ? works.map(workSummary).join('\n\n---\n\n') || '표시할 작업이 없습니다.'
+      : JSON.stringify(contentValue, null, 2) }];
     if (!isError && value?.dashboardUrl && !embedded) {
       content.push({
         type: "resource_link",

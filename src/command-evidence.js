@@ -14,6 +14,26 @@ export function commandSucceeded(item) {
   return commandExitCode(item) === 0 && !['failed','error','running','inprogress','in_progress'].includes(String(item?.status?.type ?? item?.status ?? '').toLowerCase());
 }
 
+// One interpretation contract for workers, validators and dependency readers.
+// A semantic exit result and an observed output buffer are different evidence.
+export const COMMAND_EVIDENCE_POLICY = "Distinguish command outcome from output observation. For a literal diagnostic-free rg --files enumeration, exit code 1 supports no matches by command semantics; it does not prove that an empty output buffer was captured. When no output is exposed, say 'no matches inferred from exit code 1; output not available', never 'observed empty output'. Null or omitted output is unavailable, an explicit empty string is observed empty, and streamedOutput is partial evidence only. Do not infer test counts from exit code 0, source code, earlier runs or worker prose. Preserve missing evidence as unverified and do not rerun commands merely to manufacture receipts. Missing logs alone are not contradictory output; explicit unsupported observation claims still require correction.";
+
+export function commandObservation(item) {
+  const sources = [item, item?.result].filter(Boolean);
+  const complete = sources.flatMap(source => ['aggregatedOutput', 'output'].map(key => source[key]))
+    .filter(value => typeof value === 'string');
+  const separate = sources.some(source => typeof source.stdout === 'string' && typeof source.stderr === 'string');
+  const strings = sources.flatMap(source => ['aggregatedOutput', 'output', 'stdout', 'stderr', 'streamedOutput'].map(key => source[key]))
+    .filter(value => typeof value === 'string');
+  const hasContent = strings.some(value => value.length > 0);
+  const outputObservation = complete.length || separate
+    ? (hasContent ? 'captured' : 'observed_empty')
+    : strings.length ? 'partial' : 'unavailable';
+  return { command: commandText(item), exitCode: commandExitCode(item), outputObservation,
+    outcome: isEmptyFileSearch(item) ? 'no_matches_by_exit_code'
+      : commandSucceeded(item) ? 'succeeded' : commandExitCode(item) === null ? 'unknown' : 'not_succeeded' };
+}
+
 // Decode a single shell invocation without executing it. Reject expansion,
 // redirection and compound commands rather than guessing which child failed.
 function literalWords(text) {
