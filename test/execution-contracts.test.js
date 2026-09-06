@@ -4,6 +4,18 @@ import test from "node:test";
 import { assertExecutionContract, compileExecutionContract } from "../src/execution-contracts.js";
 import { evaluateTaskCompletion } from "../src/completion-evaluator.js";
 
+test('Workspace static checks and explicitly excluded host checks do not request runtime authority', () => {
+  const contract = compileExecutionContract({ taskKind: 'test', tools: ['shell','filesystem'], acceptanceCriteria: [
+    'Status, refresh, and rendering only project recorded or observed state and never trigger work or semantic indexing.',
+    'UI deliverables support static and component-level inspection; native-app and browser success are not claimed.',
+    'CLI and MCP tests use subprocess pipes; UI tests use static or component inspection without browser or listening sockets.',
+    'No browser inspection or listening socket is attempted, and unexecuted host checks are not reported as passed.'
+  ] });
+  assert.equal(contract.executionCapabilities.includes('browser-inspection'),false);
+  assert.equal(contract.executionCapabilities.includes('localhost-listen'),false);
+  assert.throws(() => compileExecutionContract({ taskKind:'test', tools:['shell'], executionCapabilities:['browser-inspection'], acceptanceCriteria:['No browser inspection is attempted.'] }), /browser-capable/);
+});
+
 test('test execution defaults to a report and does not require a project change', () => {
   const contract = compileExecutionContract({ key: 'work', taskKind: 'test', workspaceMode: 'shared' });
   assert.equal(contract.mutatesWorkspace, false);

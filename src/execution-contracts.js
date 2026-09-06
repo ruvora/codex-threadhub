@@ -156,10 +156,14 @@ function words(value) {
 export function acceptanceCapabilityRequirements(task = {}) {
   const criteria = assertStringArray(task.acceptanceCriteria ?? [], "acceptanceCriteria").join("\n").toLowerCase();
   const required = new Set();
-  if (/\b(browser|viewport|render(?:ing)?|screenshot|visual regression|responsive)\b|브라우저|뷰포트|렌더링|스크린샷|시각\s*회귀|반응형/.test(criteria)) {
+  // A document mentioning rendering, or explicitly excluding browser checks,
+  // is not a request for a live browser. Explicit capabilities remain binding.
+  const affirmative = criteria.split(/[\n.;]/).filter(clause => !/\b(no browser|without (?:a )?browser|browser .*not (?:claimed|required)|native-app and browser success are not claimed)\b|브라우저.*(?:제외|미검증|하지 않)/.test(clause)).join('\n');
+  if (/\b(screenshot|visual regression)\b|\b(?:actual|real|live) browser\b|\b(?:browser|viewport|responsive)\b.*\b(?:inspect|verify|validate|test|capture)\b|\b(?:inspect|verify|validate|test|capture)\b.*\b(?:browser|viewport|responsive)\b|브라우저.*(?:검증|확인|실행)|뷰포트|스크린샷|시각\s*회귀|반응형.*검증/.test(affirmative)) {
     required.add("browser-inspection");
   }
-  if (/\b(localhost|127\.0\.0\.1|listen(?:er|ing)?|local server|unix socket)\b|로컬\s*(?:서버|소켓)|리스너/.test(criteria)) {
+  const runtimeCriteria = criteria.split(/[\n;]/).filter(clause => !/\b(?:no|without) (?:a |any )?(?:listening socket|socket listener|local server)|\bno browser inspection or listening socket|without browser or listening sockets/.test(clause)).join('\n');
+  if (/\b(localhost|127\.0\.0\.1|listen(?:er|ing)?|local server|unix socket)\b|로컬\s*(?:서버|소켓)|리스너/.test(runtimeCriteria)) {
     required.add("process-execution");
     required.add("localhost-listen");
   }

@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { reconcileNativeEvidence } from '../src/native-evidence.js';
 const item = {id:'exec-one',type:'commandExecution',command:"/bin/zsh -lc 'rg --files --hidden -g AGENTS.md'",exitCode:1,aggregatedOutput:null};
+test('shell display escaping is not a conflict when structured identity matches',()=>{
+  const command="node <<'NODE'\nconsole.log('quoted ! text');\nNODE";
+  const rows=[{type:'session_meta',payload:{id:'thread'}},{type:'event_msg',payload:{type:'item_completed',thread_id:'thread',turn_id:'turn',item:{type:'CommandExecution',id:'exec-one',command:['/bin/zsh','-lc',command],cwd:'file:///repo',process_id:'12',exit_code:0,aggregated_output:'ok'}}}];
+  const projected={...item,command:'escaped host display',cwd:'/repo',processId:'12',exitCode:0,commandActions:[{type:'unknown',command}]};
+  const read = value => reconcileNativeEvidence(rows.map(JSON.stringify).join('\n'),{threadId:'thread',turnId:'turn',items:[value]});
+  assert.equal(read(projected).nativeEvidence.status,'read');
+  assert.equal(read(projected).items[0].aggregatedOutput,'ok');
+  for(const change of [{cwd:'/other'},{processId:'13'},{exitCode:1},{commandActions:[{type:'unknown',command:'different'}]}]) assert.equal(read({...projected,...change}).nativeEvidence.status,'conflicting');
+});
 function fixture({thread='thread',turn='turn',output='',exit=1}={}) {
   return [
     {type:'session_meta',payload:{id:thread}},

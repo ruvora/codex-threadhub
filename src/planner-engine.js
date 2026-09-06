@@ -104,7 +104,11 @@ function assertSingleRunStart(plan) {
 function assertPlanExecutionContracts(plan, roleTemplates) {
   for (const task of plan?.tasks ?? []) {
     const roleTemplate = roleTemplates.resolve(task.role);
-    compileAndValidateExecutionContract(task, {}, roleTemplate);
+    try { compileAndValidateExecutionContract(task, {}, roleTemplate); }
+    catch (error) {
+      error.message = `Task ${task.key}: ${error.message} (workspaceMode=${task.workspaceMode}, integrationStrategy=${task.integrationStrategy}, tools=${JSON.stringify(task.tools)})`;
+      throw error;
+    }
   }
 }
 
@@ -170,6 +174,7 @@ export class PlannerEngine {
       "Synthesize this completed control-plane run. Return only JSON matching the supplied schema.",
       expectedStatus ? `The durable Run verdict is ${expectedStatus}. Your status must match it and cannot be changed by prose.` : null,
       `Objective: ${plan.objective}`,
+      `User constraints (binding; do not replace them with default planning preferences): ${JSON.stringify(plan.metadata?.constraints ?? [])}`,
       `Plan: ${JSON.stringify(plan.plan)}`,
       `Task results: ${JSON.stringify(tasks.map((task) => ({
         id: task.id,
@@ -214,6 +219,8 @@ export class PlannerEngine {
       `Validated context snapshot (${validatedSnapshot.id}, fingerprint=${validatedSnapshot.fingerprint}):\n${this.contextResolver.format(validatedSnapshot)}`,
       `Project context:\n${this.contextManager.format(context)}`,
       "Use worktree workspace mode for concurrent file-writing tasks. Follow-up work must never start automatically.",
+      `User constraints (binding): ${JSON.stringify(plan.metadata?.constraints ?? [])}`,
+      "Prefer the smallest dependency graph that satisfies the request. When sequential shared-workspace writes are requested, do not introduce worktrees or parallel writers. shared requires integrationStrategy=none; worktree mutations require patch or commit. integrationStrategy describes publishing THIS task's worktree, not consuming dependency artifacts. Browser tools are unavailable in the current worker tool allowlist: use static/unit checks when requested and keep native/browser checks as unverified external release gates, not worker acceptance requirements.",
       "The user Start gate applies exactly once to the parent Run. Every dependency task, validator, retry, and rework must execute under that existing authorization and must never request another, additional, separate, or second Start.",
       "Set authorizationScope to parent_run for every task. This structured field is the authoritative authorization contract; task prose must not contradict it.",
       "Declare taskKind, mutatesWorkspace, networkAccess, sideEffectPolicy, executionCapabilities, outputs, integrationStrategy, and dependencyPolicy explicitly. executionCapabilities separates process-execution, temporary-filesystem-write, localhost-connect, localhost-listen, external-network, browser-inspection, workspace-write, and git-integration. A test that does not modify project files may still require temporary-filesystem-write or localhost-listen and therefore a writable runtime sandbox. This runtime cannot grant localhost-listen inside workspace-write with networkAccess=false. Never increase networkAccess or sandbox authority to work around this. Prefer socket-free unit tests where appropriate and report socket integration tests as requiring an authorized host, not as passed. Browser acceptance criteria require browser-inspection and a browser-capable tool. sideEffectPolicy=none means observation or computation only; local-runtime means lifecycle changes limited to this product's local daemon/process/socket; workspace means project file changes; external means changing remote services or other external systems; destructive means difficult-to-recover deletion or overwrite. Reading local process, socket, MCP, or health state is none. Normal automatic startup of this product's local daemon is local-runtime, never external. External and destructive tasks are outside automatic Run dispatch.",
@@ -255,6 +262,7 @@ export class PlannerEngine {
         contractError = null;
         break;
       } catch (error) {
+        this.registry.updatePlan(planId, { metadata: { rejectedDrafts: [...(this.registry.getPlan(planId).metadata?.rejectedDrafts ?? []), { draft: materialized, code: error.code ?? 'INVALID_PLAN', cause: error.message, attempt: attempt + 1 }] } });
         contractError = error;
       }
     }

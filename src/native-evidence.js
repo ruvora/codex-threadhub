@@ -2,6 +2,7 @@ import { open } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { commandExitCode } from './command-evidence.js';
 
 // Only the exact host-returned rollout, session, turn and already observed item.
@@ -57,7 +58,16 @@ export function reconcileNativeEvidence(text, { threadId, turnId, items }) {
     if (!raw) return item;
     const rawCommand = Array.isArray(raw.command) ? raw.command.at(-1) : raw.command;
     // Identity is necessary, but a mismatched command/exit cannot fill a log.
-    const commandMatches = typeof rawCommand === 'string'
+    const pathValue = value => { try { return typeof value === 'string' && value.startsWith('file:') ? fileURLToPath(value) : value; } catch { return null; } };
+    // The host's display command is shell-escaped for presentation. Compare its
+    // structured action instead of interpreting/evaluating that display string.
+    const action = item.commandActions?.length === 1 ? item.commandActions[0] : null;
+    const structuredMatch = Array.isArray(raw.command) && raw.command.length === 3
+      && /\/(?:ba|z)?sh$/.test(raw.command[0]) && ['-c','-lc'].includes(raw.command[1])
+      && action?.type === 'unknown' && action.command === rawCommand
+      && typeof item.cwd === 'string' && pathValue(item.cwd) === pathValue(raw.cwd)
+      && (item.processId == null || raw.process_id == null || String(item.processId) === String(raw.process_id));
+    const commandMatches = structuredMatch || typeof rawCommand === 'string'
       && (item.command === rawCommand || (Array.isArray(raw.command) && typeof item.command === 'string'
         && [raw.command.join(' '), `${raw.command[0]} ${raw.command[1]} '${rawCommand}'`, `${raw.command[0]} ${raw.command[1]} "${rawCommand}"`].includes(item.command)));
     if (!commandMatches || commandExitCode(item) !== raw.exit_code) {
